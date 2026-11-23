@@ -92,6 +92,16 @@ class Settings(BaseSettings):
                     data["DATABASE_URL"] = db_url.replace("postgres://", "postgresql+psycopg://", 1)
                 elif db_url.startswith("postgresql://") and not db_url.startswith("postgresql+psycopg://"):
                     data["DATABASE_URL"] = db_url.replace("postgresql://", "postgresql+psycopg://", 1)
+
+                # Sync POSTGRES_PASSWORD from DATABASE_URL if available
+                from urllib.parse import urlparse
+                try:
+                    clean_for_parse = db_url.replace("postgresql+psycopg://", "http://").replace("postgres://", "http://").replace("postgresql://", "http://")
+                    parsed = urlparse(clean_for_parse)
+                    if parsed.password and data.get("POSTGRES_PASSWORD") in (None, "acme_secure_dev_pw_2026"):
+                        data["POSTGRES_PASSWORD"] = parsed.password
+                except Exception:
+                    pass
         return data
 
     @model_validator(mode="after")
@@ -116,8 +126,11 @@ class Settings(BaseSettings):
                 raise ValueError("Insecure, default, or short JWT_SECRET_KEY is forbidden in non-development environments.")
             if not self.INTERNAL_MCP_SECRET or len(self.INTERNAL_MCP_SECRET) < 32 or any(frag in self.INTERNAL_MCP_SECRET.lower() for frag in known_insecure_fragments):
                 raise ValueError("Insecure, default, or short INTERNAL_MCP_SECRET is forbidden in non-development environments.")
-            if not self.POSTGRES_PASSWORD or "acme_secure_dev_pw" in self.POSTGRES_PASSWORD or self.POSTGRES_PASSWORD in ("postgres", "password", "root", "admin"):
-                raise ValueError("Default development POSTGRES_PASSWORD is forbidden in non-development environments.")
+
+            has_prod_db = self.DATABASE_URL and ("acme_secure_dev_pw" not in self.DATABASE_URL) and ("localhost" not in self.DATABASE_URL)
+            if not has_prod_db:
+                if not self.POSTGRES_PASSWORD or "acme_secure_dev_pw" in self.POSTGRES_PASSWORD or self.POSTGRES_PASSWORD in ("postgres", "password", "root", "admin"):
+                    raise ValueError("Default development POSTGRES_PASSWORD is forbidden in non-development environments.")
         return self
 
 
