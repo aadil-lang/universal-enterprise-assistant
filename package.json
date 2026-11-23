@@ -1,0 +1,12 @@
+{
+  "name": "universal-enterprise-assistant",
+  "version": "0.1.0",
+  "scripts": {
+    "build": "npm --prefix apps/web run build",
+    "start": "npm --prefix apps/web run start"
+  },
+  "dependencies": {
+    "@neon/config": "^1.14.6",
+    "@neon/env": "^2.1.9"
+  }
+}

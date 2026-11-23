@@ -268,7 +268,7 @@ export const ArchieVoiceAssistant: React.FC<ArchieVoiceAssistantProps> = ({
         {isVoiceEnabled && liveTranscript && (
           <div className="flex-1 max-w-md mx-2 px-3 py-1 bg-indigo-950/70 border border-indigo-500/40 rounded-xl text-xs text-indigo-100 flex items-center space-x-2 truncate shadow-inner">
             <Radio className="w-3.5 h-3.5 text-rose-400 flex-shrink-0 animate-pulse" />
-            <span className="font-mono text-[11px] truncate">"{liveTranscript}"</span>
+            <span className="font-mono text-[11px] truncate">&ldquo;{liveTranscript}&rdquo;</span>
           </div>
         )}
 
