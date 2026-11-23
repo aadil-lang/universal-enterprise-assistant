@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "node --experimental-strip-types tests/verify_frontend.mjs && node --experimental-strip-types tests/test_markdown_rendering.mjs"
+    "test": "node --experimental-strip-types tests/verify_frontend.mjs && node --experimental-strip-types tests/test_markdown_rendering.mjs && node --experimental-strip-types tests/test_archie_voice.mjs"
   },
   "dependencies": {
     "lucide-react": "^1.16.0",

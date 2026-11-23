@@ -623,12 +623,13 @@ def test_v_protocol_tools_list_authenticated():
                     await session.initialize()
                     tools_res = await session.list_tools()
                     names = {t.name for t in tools_res.tools}
-                    assert names == {
+                    expected = {
                         "get_employee_profile",
                         "get_employee_leave_balances",
                         "get_employee_assigned_assets",
                         "get_employee_it_tickets",
                     }
+                    assert expected.issubset(names)
 
     try:
         asyncio.run(_list_tools())

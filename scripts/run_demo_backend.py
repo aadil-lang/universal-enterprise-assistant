@@ -13,6 +13,8 @@ import uuid
 
 BASE_DIR = r"c:\Users\HP\OneDrive\Documents\HR-IT Helpdesk"
 sys.path.insert(0, os.path.join(BASE_DIR, "apps", "api"))
+import app
+app.__path__.append(os.path.join(BASE_DIR, "packages", "mcp_server", "app"))
 
 from dotenv import load_dotenv
 load_dotenv(os.path.join(BASE_DIR, ".env"))
@@ -117,8 +119,74 @@ def setup_in_memory_db():
             is_active=True,
         )
 
-        session.add_all([alice_emp, alice_user, bob_emp, bob_user, carol_emp, carol_user])
+        # Seed Leave Balances (FY 2026)
+        from app.models.transaction import LeaveBalanceModel, ITAssetModel, ITTicketModel
+
+        bob_lb_annual = LeaveBalanceModel(
+            id=uuid.UUID("c0000000-0000-0000-0000-000000000103"),
+            employee_id=bob_emp.id,
+            leave_type="annual",
+            accrued_days=20.0,
+            used_days=10.0,
+            pending_days=2.0,
+            available_days=8.0,
+            fiscal_year=2026,
+        )
+        bob_lb_sick = LeaveBalanceModel(
+            id=uuid.UUID("c0000000-0000-0000-0000-000000000104"),
+            employee_id=bob_emp.id,
+            leave_type="sick",
+            accrued_days=10.0,
+            used_days=2.0,
+            pending_days=0.0,
+            available_days=8.0,
+            fiscal_year=2026,
+        )
+        carol_lb_annual = LeaveBalanceModel(
+            id=uuid.UUID("c0000000-0000-0000-0000-000000000105"),
+            employee_id=carol_emp.id,
+            leave_type="annual",
+            accrued_days=18.0,
+            used_days=4.0,
+            pending_days=0.0,
+            available_days=14.0,
+            fiscal_year=2026,
+        )
+
+        # Seed IT Asset
+        bob_asset = ITAssetModel(
+            id=uuid.UUID("d0000000-0000-0000-0000-000000000101"),
+            employee_id=bob_emp.id,
+            asset_tag="LT-8821",
+            device_type="laptop",
+            make_model="Lenovo ThinkPad T14",
+            serial_number="SN-994821",
+            assigned_date=date(2022, 6, 5),
+            condition_status="active",
+        )
+
+        # Seed IT Ticket
+        bob_ticket = ITTicketModel(
+            id=uuid.UUID("e0000000-0000-0000-0000-000000000101"),
+            employee_id=bob_emp.id,
+            ticket_number="IT-1042",
+            title="VPN connection timeout",
+            description="VPN client disconnects intermittently after 15 minutes.",
+            category="network",
+            priority="medium",
+            status="open",
+            asset_tag="LT-8821",
+        )
+
+        session.add_all([
+            alice_emp, alice_user, bob_emp, bob_user, carol_emp, carol_user,
+            bob_lb_annual, bob_lb_sick, carol_lb_annual,
+            bob_asset, bob_ticket
+        ])
         session.commit()
+
+    from app.database.connection import get_db_manager
+    get_db_manager().engine = engine
 
     set_auth_session_factory(factory)
     return factory
@@ -157,6 +225,30 @@ def setup_vector_store():
 
 
 def create_in_process_mcp_client():
+    from app.auth.context import set_current_caller, reset_current_caller
+    from app.tools.employee_tools import (
+        get_employee_profile_handler,
+        get_employee_leave_balances_handler,
+        get_employee_assigned_assets_handler,
+        get_employee_it_tickets_handler,
+    )
+    from app.tools.transaction_tools import (
+        submit_leave_request_handler,
+        cancel_leave_request_handler,
+        get_leave_request_status_handler,
+        create_it_ticket_handler,
+        update_it_ticket_handler,
+        get_it_ticket_status_handler,
+        submit_reimbursement_request_handler,
+        get_reimbursement_status_handler,
+        create_hr_service_request_handler,
+        get_hr_request_status_handler,
+        submit_equipment_request_handler,
+        get_equipment_request_status_handler,
+        update_employee_contact_handler,
+        get_all_requests_status_handler,
+    )
+
     mcp_client = AuthenticatedMCPClient()
 
     async def in_process_dispatcher(tool_name: str, args: dict, caller: CallerIdentity) -> dict:
@@ -164,111 +256,58 @@ def create_in_process_mcp_client():
         if caller.role == UserRole.EMPLOYEE and target != caller.employee_number:
             raise MCPAuthorizationError("Access Denied: You are not authorized to view records for this employee.")
 
-        if tool_name == "get_employee_leave_balances":
-            if target == "E102":
-                return {
-                    "found": True,
-                    "employee_number": "E102",
-                    "fiscal_year": 2026,
-                    "balances": [
-                        {
-                            "leave_type": "annual",
-                            "accrued_days": 20.0,
-                            "used_days": 10.0,
-                            "pending_days": 2.0,
-                            "available_days": 8.0,
-                            "fiscal_year": 2026,
-                        },
-                        {
-                            "leave_type": "sick",
-                            "accrued_days": 10.0,
-                            "used_days": 2.0,
-                            "pending_days": 0.0,
-                            "available_days": 8.0,
-                            "fiscal_year": 2026,
-                        },
-                    ],
-                }
-            elif target == "E103":
-                return {
-                    "found": True,
-                    "employee_number": "E103",
-                    "fiscal_year": 2026,
-                    "balances": [
-                        {
-                            "leave_type": "annual",
-                            "accrued_days": 18.0,
-                            "used_days": 4.0,
-                            "pending_days": 0.0,
-                            "available_days": 14.0,
-                            "fiscal_year": 2026,
-                        }
-                    ],
-                }
-            return {"found": False, "message": f"Employee {target} not found."}
-
-        elif tool_name == "get_employee_assigned_assets":
-            if target == "E102":
-                return {
-                    "found": True,
-                    "employee_number": "E102",
-                    "assets": [
-                        {
-                            "asset_tag": "LT-8821",
-                            "device_type": "laptop",
-                            "make_model": "Lenovo ThinkPad T14",
-                            "serial_number": "SN-994821",
-                            "condition_status": "active",
-                        }
-                    ],
-                }
-            return {"found": True, "employee_number": target, "assets": []}
-
-        elif tool_name == "get_employee_it_tickets":
-            if target == "E102":
-                return {
-                    "found": True,
-                    "employee_number": "E102",
-                    "tickets": [
-                        {
-                            "ticket_number": "IT-1042",
-                            "title": "VPN connection timeout",
-                            "category": "network",
-                            "priority": "medium",
-                            "status": "open",
-                        }
-                    ],
-                }
-            return {"found": True, "employee_number": target, "tickets": []}
-
-        elif tool_name == "get_employee_profile":
-            if target == "E102":
-                return {
-                    "found": True,
-                    "employee": {
-                        "employee_number": "E102",
-                        "first_name": "Bob",
-                        "last_name": "Jones",
-                        "job_title": "Senior Software Engineer",
-                        "department": "Engineering",
-                        "employment_status": "active",
-                    },
-                }
-            elif target == "E101":
-                return {
-                    "found": True,
-                    "employee": {
-                        "employee_number": "E101",
-                        "first_name": "Alice",
-                        "last_name": "Smith",
-                        "job_title": "HR Director",
-                        "department": "Human Resources",
-                        "employment_status": "active",
-                    },
-                }
-            return {"found": False, "message": f"Employee {target} not found."}
-
-        raise ValueError(f"Unknown tool: {tool_name}")
+        token = set_current_caller(caller)
+        try:
+            if tool_name == "get_employee_leave_balances":
+                return get_employee_leave_balances_handler(target, args.get("fiscal_year"))
+            elif tool_name == "get_employee_assigned_assets":
+                return get_employee_assigned_assets_handler(target)
+            elif tool_name == "get_employee_it_tickets":
+                return get_employee_it_tickets_handler(target, args.get("status_filter", "all"))
+            elif tool_name == "get_employee_profile":
+                return get_employee_profile_handler(target)
+            elif tool_name == "submit_leave_request":
+                return submit_leave_request_handler(
+                    target, args["leave_type"], args["start_date"], args["end_date"], args.get("reason")
+                )
+            elif tool_name == "cancel_leave_request":
+                return cancel_leave_request_handler(target, args["request_number"], args.get("cancellation_reason"))
+            elif tool_name == "get_leave_request_status":
+                return get_leave_request_status_handler(target, args.get("request_number"))
+            elif tool_name == "create_it_ticket":
+                return create_it_ticket_handler(
+                    target, args["title"], args["description"], args["category"], args.get("priority", "medium"), args.get("asset_tag")
+                )
+            elif tool_name == "update_it_ticket":
+                return update_it_ticket_handler(target, args["ticket_number"], args["update_text_val"])
+            elif tool_name == "get_it_ticket_status":
+                return get_it_ticket_status_handler(target, args.get("ticket_number"))
+            elif tool_name == "submit_reimbursement_request":
+                return submit_reimbursement_request_handler(
+                    target, args["expense_category"], args["amount"], args["purchase_date"], args["description"], args.get("vendor"), args.get("receipt_filename")
+                )
+            elif tool_name == "get_reimbursement_status":
+                return get_reimbursement_status_handler(target, args.get("request_number"))
+            elif tool_name == "create_hr_service_request":
+                return create_hr_service_request_handler(
+                    target, args["service_category"], args["purpose"], args.get("recipient_details"), args.get("additional_details")
+                )
+            elif tool_name == "get_hr_request_status":
+                return get_hr_request_status_handler(target, args.get("request_number"))
+            elif tool_name == "submit_equipment_request":
+                return submit_equipment_request_handler(
+                    target, args["equipment_type"], args["business_justification"], args.get("specifications")
+                )
+            elif tool_name == "get_equipment_request_status":
+                return get_equipment_request_status_handler(target, args.get("request_number"))
+            elif tool_name == "update_employee_contact":
+                return update_employee_contact_handler(target, args["field_name"], args["new_value"])
+            elif tool_name == "get_all_requests_status":
+                return get_all_requests_status_handler(target, args.get("category_filter", "all"))
+            else:
+                raise ValueError(f"Unknown tool: {tool_name}")
+        finally:
+            reset_current_caller(token)
 
     mcp_client.call_tool = in_process_dispatcher
     return mcp_client

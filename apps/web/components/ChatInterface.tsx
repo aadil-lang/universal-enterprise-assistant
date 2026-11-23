@@ -2,9 +2,10 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { api, ChatCitation, ApiError } from '../lib/api';
+import { api, ChatCitation, ConfirmationPrompt, ApiError } from '../lib/api';
 import { DocumentUploadModal } from './DocumentUploadModal';
 import { MarkdownRenderer } from './MarkdownRenderer';
+import { ArchieVoiceAssistant } from './ArchieVoiceAssistant';
 import {
   Send,
   LogOut,
@@ -19,17 +20,23 @@ import {
   ShieldAlert,
   UploadCloud,
   ChevronRight,
+  CheckCircle2,
+  XCircle,
+  ClipboardList,
 } from 'lucide-react';
 
 interface ChatMessage {
   id: string;
   sender: 'user' | 'assistant';
   text: string;
-  category?: 'policy' | 'employee' | 'hybrid' | 'out_of_scope';
+  category?: 'policy' | 'employee' | 'hybrid' | 'out_of_scope' | 'transactional';
   citations?: ChatCitation[];
   mcpToolsUsed?: string[];
   executionTimeMs?: number;
   timestamp: string;
+  confirmationPrompt?: ConfirmationPrompt | null;
+  transactionResult?: any;
+  confirmedOrCancelled?: 'confirmed' | 'cancelled';
 }
 
 export const ChatInterface: React.FC = () => {
@@ -69,6 +76,31 @@ export const ChatInterface: React.FC = () => {
     };
 
     setMessages((prev) => [...prev, userMsg]);
+
+    // Strict Security Boundary (ESR-STD-v2.4 §12.1):
+    // Voice recognition and conversational statements can NEVER execute a transaction without the human confirmation button.
+    const lower = query.toLowerCase().trim();
+    if (
+      lower === 'yes submit it' ||
+      lower === 'yes, submit it.' ||
+      lower === 'yes, submit it' ||
+      lower === 'confirm submission' ||
+      lower === 'yes confirm' ||
+      lower === 'please confirm' ||
+      lower === 'confirm it'
+    ) {
+      const refusalMsg = "For your security and corporate compliance, enterprise actions require explicit confirmation using the 'Confirm Submission' button on your screen.";
+      const assistantMsg: ChatMessage = {
+        id: `assistant-${Date.now()}`,
+        sender: 'assistant',
+        text: refusalMsg,
+        category: 'transactional',
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      };
+      setMessages((prev) => [...prev, assistantMsg]);
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -82,6 +114,8 @@ export const ChatInterface: React.FC = () => {
         citations: response.citations || [],
         mcpToolsUsed: response.mcp_tools_used || [],
         executionTimeMs: response.execution_time_ms,
+        confirmationPrompt: response.confirmation_prompt,
+        transactionResult: response.transaction_result,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
 
@@ -112,6 +146,186 @@ export const ChatInterface: React.FC = () => {
     }
   };
 
+  const handleVoiceSubmit = async (query: string): Promise<string | void> => {
+    if (!query || !token || isLoading) return;
+
+    // Strict Security Boundary (ESR-STD-v2.4 §12.1):
+    // Voice recognition and spoken requests can NEVER bypass human confirmation for transactions.
+    const lower = query.toLowerCase().trim();
+    if (
+      lower === 'yes submit it' ||
+      lower === 'yes, submit it.' ||
+      lower === 'yes, submit it' ||
+      lower === 'confirm submission' ||
+      lower === 'yes confirm' ||
+      lower === 'please confirm' ||
+      lower === 'confirm it'
+    ) {
+      const refusalMsg = "For your security and corporate compliance, enterprise actions require explicit confirmation using the 'Confirm Submission' button on your screen.";
+      const userMsg: ChatMessage = {
+        id: `user-${Date.now()}`,
+        sender: 'user',
+        text: query,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      };
+      const assistantMsg: ChatMessage = {
+        id: `assistant-${Date.now()}`,
+        sender: 'assistant',
+        text: refusalMsg,
+        category: 'transactional',
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      };
+      setMessages((prev) => [...prev, userMsg, assistantMsg]);
+      return refusalMsg;
+    }
+
+    const userMsg: ChatMessage = {
+      id: `user-${Date.now()}`,
+      sender: 'user',
+      text: query,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    };
+
+    setMessages((prev) => [...prev, userMsg]);
+    setIsLoading(true);
+
+    try {
+      const response = await api.sendChatMessage(query, token, conversationIdRef.current);
+
+      const assistantMsg: ChatMessage = {
+        id: `assistant-${Date.now()}`,
+        sender: 'assistant',
+        text: response.answer,
+        category: response.category,
+        citations: response.citations || [],
+        mcpToolsUsed: response.mcp_tools_used || [],
+        executionTimeMs: response.execution_time_ms,
+        confirmationPrompt: response.confirmation_prompt,
+        transactionResult: response.transaction_result,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      };
+
+      setMessages((prev) => [...prev, assistantMsg]);
+
+      // If transactional confirmation is prepared, speak natural guidance directing user to screen
+      if (response.confirmation_prompt) {
+        const title = response.confirmation_prompt.summary_title || 'request';
+        return `I've prepared your ${title}. Please review the dates and details on your screen and confirm when you're ready.`;
+      }
+
+      return response.answer;
+    } catch (err: any) {
+      if (err instanceof ApiError && err.status === 401) {
+        setErrorBanner('Your session has expired. Please sign in again.');
+        logout();
+      } else {
+        const errorMsg =
+          err?.message || 'An error occurred communicating with the assistant.';
+        setErrorBanner(errorMsg);
+
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `assistant-error-${Date.now()}`,
+            sender: 'assistant',
+            text: `⚠️ I encountered an error while processing your request: ${errorMsg}`,
+            category: 'out_of_scope',
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          },
+        ]);
+        return `I encountered an issue: ${errorMsg}`;
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleConfirmTransaction = async (msgId: string, tokenVal: string) => {
+    if (!token || isLoading) return;
+
+    // Mark current message card as confirmed
+    setMessages((prev) =>
+      prev.map((m) => (m.id === msgId ? { ...m, confirmedOrCancelled: 'confirmed' } : m))
+    );
+
+    const userMsg: ChatMessage = {
+      id: `user-${Date.now()}`,
+      sender: 'user',
+      text: 'Yes, submit it.',
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    };
+    setMessages((prev) => [...prev, userMsg]);
+    setIsLoading(true);
+
+    try {
+      const response = await api.sendChatMessage(
+        'Yes, submit it.',
+        token,
+        conversationIdRef.current,
+        'confirm',
+        tokenVal
+      );
+
+      const assistantMsg: ChatMessage = {
+        id: `assistant-${Date.now()}`,
+        sender: 'assistant',
+        text: response.answer,
+        category: response.category,
+        citations: response.citations || [],
+        mcpToolsUsed: response.mcp_tools_used || [],
+        executionTimeMs: response.execution_time_ms,
+        confirmationPrompt: response.confirmation_prompt,
+        transactionResult: response.transaction_result,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      };
+      setMessages((prev) => [...prev, assistantMsg]);
+    } catch (err: any) {
+      setErrorBanner(err?.message || 'Transaction submission failed.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCancelTransaction = async (msgId: string, tokenVal: string) => {
+    if (!token || isLoading) return;
+
+    setMessages((prev) =>
+      prev.map((m) => (m.id === msgId ? { ...m, confirmedOrCancelled: 'cancelled' } : m))
+    );
+
+    const userMsg: ChatMessage = {
+      id: `user-${Date.now()}`,
+      sender: 'user',
+      text: 'Cancel this request.',
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    };
+    setMessages((prev) => [...prev, userMsg]);
+    setIsLoading(true);
+
+    try {
+      const response = await api.sendChatMessage(
+        'Cancel this request.',
+        token,
+        conversationIdRef.current,
+        'cancel',
+        tokenVal
+      );
+
+      const assistantMsg: ChatMessage = {
+        id: `assistant-${Date.now()}`,
+        sender: 'assistant',
+        text: response.answer,
+        category: response.category,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      };
+      setMessages((prev) => [...prev, assistantMsg]);
+    } catch (err: any) {
+      setErrorBanner(err?.message || 'Cancellation failed.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -126,11 +340,12 @@ export const ChatInterface: React.FC = () => {
   };
 
   const employeePrompts = [
+    'I want to take leave from December 10 to December 12',
+    'My laptop screen is broken, please raise an IT ticket',
+    'I purchased an ergonomic chair for $250. Can I claim reimbursement?',
+    'What is the status of my open requests and tickets?',
     'What is the annual leave carryover policy?',
     'How much annual leave do I have remaining?',
-    'What laptop model is assigned to me?',
-    'What is the laptop replacement policy, and which laptop is assigned to me?',
-    'What is the status of my open IT support tickets?',
   ];
 
   const adminPrompts = [
@@ -212,6 +427,13 @@ export const ChatInterface: React.FC = () => {
           </button>
         </div>
       </header>
+
+      {/* 1.5 Archie Personalized Voice Assistant Bar */}
+      <ArchieVoiceAssistant
+        user={user}
+        onSubmitUtterance={handleVoiceSubmit}
+        isProcessingQuery={isLoading}
+      />
 
       {/* 2. Error Notification Banner */}
       {errorBanner && (
@@ -308,6 +530,12 @@ export const ChatInterface: React.FC = () => {
                           Hybrid Policy + Employee
                         </span>
                       )}
+                      {msg.category === 'transactional' && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-violet-50 text-violet-700 border border-violet-200">
+                          <ClipboardList className="w-3 h-3 mr-1" />
+                          Enterprise Transaction
+                        </span>
+                      )}
                       {msg.category === 'out_of_scope' && (
                         <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
                           <ShieldAlert className="w-3 h-3 mr-1" />
@@ -336,6 +564,63 @@ export const ChatInterface: React.FC = () => {
                     <MarkdownRenderer content={msg.text} />
                   )}
                 </div>
+
+                {/* Interactive Transaction Confirmation Card */}
+                {msg.sender === 'assistant' && msg.confirmationPrompt && (
+                  <div className="mt-3.5 p-3.5 bg-gradient-to-br from-blue-50/90 to-indigo-50/70 border border-blue-200/90 rounded-xl text-slate-800 shadow-xs">
+                    <div className="flex items-center gap-1.5 font-semibold text-blue-900 text-xs mb-2">
+                      <ShieldAlert className="w-4 h-4 text-blue-600" />
+                      <span>{msg.confirmationPrompt.summary_title || 'Confirmation Required'}</span>
+                    </div>
+
+                    <div className="bg-white/95 border border-blue-100 rounded-lg p-2.5 my-2 divide-y divide-slate-100 text-xs">
+                      {Object.entries(msg.confirmationPrompt.details || {}).map(([key, val]) => (
+                        <div key={key} className="py-1.5 flex justify-between gap-4 text-xs">
+                          <span className="font-medium text-slate-500">{key}:</span>
+                          <span className="font-semibold text-slate-800 text-right">{String(val)}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {msg.confirmedOrCancelled ? (
+                      <div className={`mt-2.5 text-xs font-semibold px-2.5 py-1 rounded inline-flex items-center gap-1 ${
+                        msg.confirmedOrCancelled === 'confirmed'
+                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                          : 'bg-slate-200 text-slate-700 border border-slate-300'
+                      }`}>
+                        {msg.confirmedOrCancelled === 'confirmed' ? (
+                          <>
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>Action Confirmed & Executed</span>
+                          </>
+                        ) : (
+                          <>
+                            <XCircle className="w-3.5 h-3.5 text-slate-500" />
+                            <span>Action Cancelled</span>
+                          </>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 mt-3 pt-2.5 border-t border-blue-100/80">
+                        <button
+                          onClick={() => handleConfirmTransaction(msg.id, msg.confirmationPrompt!.confirmation_token)}
+                          disabled={isLoading}
+                          className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>Confirm Submission</span>
+                        </button>
+                        <button
+                          onClick={() => handleCancelTransaction(msg.id, msg.confirmationPrompt!.confirmation_token)}
+                          disabled={isLoading}
+                          className="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-xs font-medium transition-colors cursor-pointer disabled:opacity-50"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Structured Policy Citations (Rendered ONLY when genuine citations exist) */}
                 {msg.sender === 'assistant' && msg.citations && msg.citations.length > 0 && (

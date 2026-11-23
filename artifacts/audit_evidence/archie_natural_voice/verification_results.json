@@ -1,0 +1,46 @@
+{
+  "step01_login_bob": true,
+  "step02_enable_voice": true,
+  "step03_wake_phrase_triggered": true,
+  "step04_personalized_greeting": true,
+  "step05_voice_leave_question": true,
+  "step06_transcript_in_chat": true,
+  "step07_full_answer_in_chat": true,
+  "step08_conversational_speech_delivered": true,
+  "step09_voice_followup_no_wake": true,
+  "step10_typed_followup_unified_context": true,
+  "step11_start_leave_request_voice": true,
+  "step12_confirmation_card_rendered": true,
+  "step13_spoken_confirm_safely_refused": true,
+  "step14_ui_button_clicked": true,
+  "step15_transaction_executed": true,
+  "step16_logout_teardown": true,
+  "tts_voices": [
+    {
+      "name": "Microsoft David - English (United States)",
+      "lang": "en-US",
+      "default": true
+    },
+    {
+      "name": "Microsoft Ravi - English (India)",
+      "lang": "en-IN",
+      "default": false
+    },
+    {
+      "name": "Microsoft Heera - English (India)",
+      "lang": "en-IN",
+      "default": false
+    },
+    {
+      "name": "Microsoft Mark - English (United States)",
+      "lang": "en-US",
+      "default": false
+    },
+    {
+      "name": "Microsoft Zira - English (United States)",
+      "lang": "en-US",
+      "default": false
+    }
+  ],
+  "physical_microphone_disclaimer": true
+}

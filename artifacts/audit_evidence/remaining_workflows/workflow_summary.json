@@ -1,0 +1,9 @@
+{
+  "reimbursement": "CONFIRMED",
+  "hr_service": "CONFIRMED",
+  "equipment": "NOT_RENDERED",
+  "contact_update": "CONFIRMED",
+  "ticket_update": "CONFIRMED",
+  "leave_cancellation": "CONFIRMED",
+  "hr_admin": "VERIFIED"
+}

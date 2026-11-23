@@ -22,6 +22,7 @@ from app.services.guardrails import GuardrailService
 from app.services.llm_service import LLMService
 from app.services.mcp_client import AuthenticatedMCPClient, MCPAuthorizationError, get_mcp_client
 from app.services.policy_retriever import PolicyRetriever
+from app.services.transaction_intent_handler import TransactionIntentHandler
 
 logger = logging.getLogger(__name__)
 
@@ -56,10 +57,12 @@ class AgentWorkflow:
         retriever: Optional[PolicyRetriever] = None,
         mcp_client: Optional[AuthenticatedMCPClient] = None,
         llm_service: Optional[LLMService] = None,
+        tx_handler: Optional[TransactionIntentHandler] = None,
     ):
         self.retriever = retriever or PolicyRetriever()
         self.mcp_client = mcp_client or get_mcp_client()
         self.llm_service = llm_service or LLMService()
+        self.tx_handler = tx_handler or TransactionIntentHandler()
         self._conversation_sessions: Dict[str, List[Dict[str, Any]]] = {}
         self.graph = self._build_graph()
 
@@ -380,14 +383,39 @@ class AgentWorkflow:
         question: str,
         caller: CallerIdentity,
         conversation_id: Optional[str] = None,
+        confirmation_action: Optional[str] = None,
+        confirmation_token: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Executes the full LangGraph conversational workflow for a user inquiry.
-        Maintains conversational session history to support anaphoric follow-up resolution (DEF-01).
+        Handles transactional workflows with confirmation lifecycle and maintains
+        conversational session history to support anaphoric follow-up resolution (DEF-01).
         """
         start_time = time.perf_counter()
 
         session_key = f"{caller.user_id}:{conversation_id or 'default'}"
+
+        # 0. Check for transactional workflows or active confirmation handling
+        tx_result = await self.tx_handler.handle_message(
+            message=question,
+            caller=caller,
+            session_key=session_key,
+            mcp_client=self.mcp_client,
+            confirmation_action=confirmation_action,
+            confirmation_token=confirmation_token,
+        )
+
+        if tx_result is not None:
+            elapsed_ms = (time.perf_counter() - start_time) * 1000.0
+            tx_result["execution_time_ms"] = round(elapsed_ms, 2)
+            tx_result["llm_provider"] = getattr(self.llm_service, "provider", "gemini")
+            tx_result["llm_model"] = getattr(self.llm_service, "model", "gemini-3.5-flash-lite")
+            if "citations" not in tx_result:
+                tx_result["citations"] = []
+            if "mcp_tools_used" not in tx_result:
+                tx_result["mcp_tools_used"] = []
+            return tx_result
+
         history = self._conversation_sessions.get(session_key, [])
 
         initial_state: AgentState = {

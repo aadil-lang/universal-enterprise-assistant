@@ -35,6 +35,14 @@ class ChatRequest(BaseModel):
         max_length=128,
         description="Optional session / conversation ID to maintain multi-turn context",
     )
+    confirmation_action: Optional[str] = Field(
+        default=None,
+        description="Optional confirmation action ('confirm' or 'cancel') for pending transactions",
+    )
+    confirmation_token: Optional[str] = Field(
+        default=None,
+        description="Cryptographically bound confirmation token when confirming a transaction",
+    )
 
 
 class CitationModel(BaseModel):
@@ -60,6 +68,9 @@ class ChatResponse(BaseModel):
     execution_time_ms: float
     llm_provider: Optional[str] = Field(default=None, description="Active LLM provider used for response synthesis")
     llm_model: Optional[str] = Field(default=None, description="Active LLM model used for response synthesis")
+    confirmation_required: bool = Field(default=False, description="True if a transaction requires explicit user confirmation")
+    confirmation_prompt: Optional[dict] = Field(default=None, description="Metadata and details of the transaction requiring confirmation")
+    transaction_result: Optional[dict] = Field(default=None, description="Execution outcome of a confirmed transaction")
 
 
 _AGENT_INSTANCE: Optional[AgentWorkflow] = None
@@ -107,17 +118,22 @@ async def chat_endpoint(
             question=request.message,
             caller=current_user,
             conversation_id=request.conversation_id,
+            confirmation_action=request.confirmation_action,
+            confirmation_token=request.confirmation_token,
         )
 
         return ChatResponse(
             answer=result["answer"],
             category=result["category"],
-            citations=[CitationModel(**c) for c in result["citations"]],
-            mcp_tools_used=result["mcp_tools_used"],
+            citations=[CitationModel(**c) for c in result.get("citations", [])],
+            mcp_tools_used=result.get("mcp_tools_used", []),
             retrieval_decision=result.get("retrieval_decision"),
-            execution_time_ms=result["execution_time_ms"],
+            execution_time_ms=result.get("execution_time_ms", 0.0),
             llm_provider=result.get("llm_provider"),
             llm_model=result.get("llm_model"),
+            confirmation_required=result.get("confirmation_required", False),
+            confirmation_prompt=result.get("confirmation_prompt"),
+            transaction_result=result.get("transaction_result"),
         )
     except HTTPException:
         raise

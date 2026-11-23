@@ -65,3 +65,20 @@ scratch/
 *~
 .DS_Store
 Thumbs.db
+
+# Temporary build artifacts & logs
+*.tsbuildinfo
+artifacts/*.log
+
+# Intermediate raw recording captures and uncompressed WAV chunks
+artifacts/demo/raw_video*/
+artifacts/demo/audio_*/
+artifacts/loom_walkthrough/raw_recordings*/
+artifacts/demo/test_*.mp3
+artifacts/demo/narration_*.mp3
+artifacts/demo/snapshots/
+artifacts/demo/test_pronunciation/
+artifacts/demo/audio/
+artifacts/demo/audio_v2/
+artifacts/demo/raw_video_v2/
+artifacts/test_voice_sample.mp3

@@ -13,6 +13,20 @@ ApprovedMCPTool = Literal[
     "get_employee_assigned_assets",
     "get_employee_it_tickets",
     "get_employee_profile",
+    "submit_leave_request",
+    "cancel_leave_request",
+    "get_leave_request_status",
+    "create_it_ticket",
+    "update_it_ticket",
+    "get_it_ticket_status",
+    "submit_reimbursement_request",
+    "get_reimbursement_status",
+    "create_hr_service_request",
+    "get_hr_request_status",
+    "submit_equipment_request",
+    "get_equipment_request_status",
+    "update_employee_contact",
+    "get_all_requests_status",
 ]
 
 

@@ -207,6 +207,270 @@ class AuthenticatedMCPClient:
             caller,
         )
 
+    async def submit_leave_request(
+        self,
+        employee_number: str,
+        leave_type: str,
+        start_date: str,
+        end_date: str,
+        caller: CallerIdentity,
+        reason: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Submits a verified leave request for the authenticated employee."""
+        return await self.call_tool(
+            "submit_leave_request",
+            {
+                "employee_number": str(employee_number).strip(),
+                "leave_type": str(leave_type).strip().lower(),
+                "start_date": str(start_date).strip(),
+                "end_date": str(end_date).strip(),
+                "reason": reason or "",
+            },
+            caller,
+        )
+
+    async def cancel_leave_request(
+        self,
+        employee_number: str,
+        request_number: str,
+        caller: CallerIdentity,
+        cancellation_reason: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Cancels a pending leave request owned by the employee."""
+        return await self.call_tool(
+            "cancel_leave_request",
+            {
+                "employee_number": str(employee_number).strip(),
+                "request_number": str(request_number).strip(),
+                "cancellation_reason": cancellation_reason or "",
+            },
+            caller,
+        )
+
+    async def get_leave_request_status(
+        self,
+        employee_number: str,
+        caller: CallerIdentity,
+        request_number: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Retrieves leave request status for an employee."""
+        return await self.call_tool(
+            "get_leave_request_status",
+            {
+                "employee_number": str(employee_number).strip(),
+                "request_number": str(request_number).strip() if request_number else None,
+            },
+            caller,
+        )
+
+    async def create_it_ticket(
+        self,
+        employee_number: str,
+        title: str,
+        description: str,
+        category: str,
+        caller: CallerIdentity,
+        priority: str = "medium",
+        asset_tag: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Creates an IT support ticket."""
+        return await self.call_tool(
+            "create_it_ticket",
+            {
+                "employee_number": str(employee_number).strip(),
+                "title": str(title).strip(),
+                "description": str(description).strip(),
+                "category": str(category).strip().lower(),
+                "priority": str(priority).strip().lower(),
+                "asset_tag": str(asset_tag).strip() if asset_tag else None,
+            },
+            caller,
+        )
+
+    async def update_it_ticket(
+        self,
+        employee_number: str,
+        ticket_number: str,
+        update_text: str,
+        caller: CallerIdentity,
+    ) -> Dict[str, Any]:
+        """Adds an update to an existing IT ticket."""
+        return await self.call_tool(
+            "update_it_ticket",
+            {
+                "employee_number": str(employee_number).strip(),
+                "ticket_number": str(ticket_number).strip(),
+                "update_text_val": str(update_text).strip(),
+            },
+            caller,
+        )
+
+    async def get_it_ticket_status(
+        self,
+        employee_number: str,
+        caller: CallerIdentity,
+        ticket_number: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Retrieves IT ticket status and history."""
+        return await self.call_tool(
+            "get_it_ticket_status",
+            {
+                "employee_number": str(employee_number).strip(),
+                "ticket_number": str(ticket_number).strip() if ticket_number else None,
+            },
+            caller,
+        )
+
+    async def submit_reimbursement_request(
+        self,
+        employee_number: str,
+        expense_category: str,
+        amount: float,
+        purchase_date: str,
+        description: str,
+        caller: CallerIdentity,
+        vendor: Optional[str] = None,
+        receipt_filename: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Submits an expense reimbursement request."""
+        return await self.call_tool(
+            "submit_reimbursement_request",
+            {
+                "employee_number": str(employee_number).strip(),
+                "expense_category": str(expense_category).strip().lower(),
+                "amount": float(amount),
+                "purchase_date": str(purchase_date).strip(),
+                "description": str(description).strip(),
+                "vendor": str(vendor).strip() if vendor else None,
+                "receipt_filename": str(receipt_filename).strip() if receipt_filename else None,
+            },
+            caller,
+        )
+
+    async def get_reimbursement_status(
+        self,
+        employee_number: str,
+        caller: CallerIdentity,
+        request_number: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Retrieves reimbursement status."""
+        return await self.call_tool(
+            "get_reimbursement_status",
+            {
+                "employee_number": str(employee_number).strip(),
+                "request_number": str(request_number).strip() if request_number else None,
+            },
+            caller,
+        )
+
+    async def create_hr_service_request(
+        self,
+        employee_number: str,
+        service_category: str,
+        purpose: str,
+        caller: CallerIdentity,
+        recipient_details: Optional[str] = None,
+        additional_details: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Creates an HR service request."""
+        return await self.call_tool(
+            "create_hr_service_request",
+            {
+                "employee_number": str(employee_number).strip(),
+                "service_category": str(service_category).strip().lower(),
+                "purpose": str(purpose).strip(),
+                "recipient_details": str(recipient_details).strip() if recipient_details else None,
+                "additional_details": str(additional_details).strip() if additional_details else None,
+            },
+            caller,
+        )
+
+    async def get_hr_request_status(
+        self,
+        employee_number: str,
+        caller: CallerIdentity,
+        request_number: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Retrieves HR request status."""
+        return await self.call_tool(
+            "get_hr_request_status",
+            {
+                "employee_number": str(employee_number).strip(),
+                "request_number": str(request_number).strip() if request_number else None,
+            },
+            caller,
+        )
+
+    async def submit_equipment_request(
+        self,
+        employee_number: str,
+        equipment_type: str,
+        business_justification: str,
+        caller: CallerIdentity,
+        specifications: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Submits an equipment requisition request."""
+        return await self.call_tool(
+            "submit_equipment_request",
+            {
+                "employee_number": str(employee_number).strip(),
+                "equipment_type": str(equipment_type).strip().lower(),
+                "business_justification": str(business_justification).strip(),
+                "specifications": str(specifications).strip() if specifications else None,
+            },
+            caller,
+        )
+
+    async def get_equipment_request_status(
+        self,
+        employee_number: str,
+        caller: CallerIdentity,
+        request_number: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Retrieves equipment request status."""
+        return await self.call_tool(
+            "get_equipment_request_status",
+            {
+                "employee_number": str(employee_number).strip(),
+                "request_number": str(request_number).strip() if request_number else None,
+            },
+            caller,
+        )
+
+    async def update_employee_contact(
+        self,
+        employee_number: str,
+        field_name: str,
+        new_value: str,
+        caller: CallerIdentity,
+    ) -> Dict[str, Any]:
+        """Updates employee contact details (phone, emergency contact, personal email)."""
+        return await self.call_tool(
+            "update_employee_contact",
+            {
+                "employee_number": str(employee_number).strip(),
+                "field_name": str(field_name).strip().lower(),
+                "new_value": str(new_value).strip(),
+            },
+            caller,
+        )
+
+    async def get_all_requests_status(
+        self,
+        employee_number: str,
+        caller: CallerIdentity,
+        category_filter: str = "all",
+    ) -> Dict[str, Any]:
+        """Retrieves all requests for an employee."""
+        return await self.call_tool(
+            "get_all_requests_status",
+            {
+                "employee_number": str(employee_number).strip(),
+                "category_filter": str(category_filter).strip().lower(),
+            },
+            caller,
+        )
+
 
 _MCP_CLIENT_INSTANCE: Optional[AuthenticatedMCPClient] = None
 

@@ -645,7 +645,7 @@ def test_f1_mcp_protocol_streamable_http_discovery_and_tool_calls():
                         "get_employee_assigned_assets",
                         "get_employee_it_tickets",
                     }
-                    assert discovered_names == expected_tools, f"Discovered tools mismatch: {discovered_names}"
+                    assert expected_tools.issubset(discovered_names), f"Expected tools missing: {expected_tools - discovered_names}"
 
                     # 2. Call Tool 1: get_employee_profile
                     prof_res = await session.call_tool("get_employee_profile", {"employee_number": "E102"})

@@ -39,6 +39,10 @@ class EmployeeModel(Base):
     department: Mapped[str] = mapped_column(VARCHAR(64), nullable=False)
     hire_date: Mapped[date] = mapped_column(DATE, nullable=False)
     employment_status: Mapped[str] = mapped_column(VARCHAR(32), nullable=False, default="active")
+    phone_number: Mapped[Optional[str]] = mapped_column(VARCHAR(32), nullable=True)
+    emergency_contact_name: Mapped[Optional[str]] = mapped_column(VARCHAR(128), nullable=True)
+    emergency_contact_phone: Mapped[Optional[str]] = mapped_column(VARCHAR(32), nullable=True)
+    personal_email: Mapped[Optional[str]] = mapped_column(VARCHAR(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

@@ -12,6 +12,7 @@ from starlette.responses import JSONResponse
 from app.auth.middleware import HMACAuthMiddleware
 from app.config.settings import get_mcp_settings
 from app.tools.employee_tools import register_employee_tools
+from app.tools.transaction_tools import register_transactional_tools
 
 try:
     from mcp.server.fastmcp import FastMCP
@@ -44,6 +45,7 @@ def create_mcp_server() -> FastMCP:
 
     # Register the approved genuine MCP employee database tools
     register_employee_tools(server)
+    register_transactional_tools(server)
 
     @server.custom_route("/health/live", methods=["GET"])
     async def liveness_probe(request: Request) -> JSONResponse:

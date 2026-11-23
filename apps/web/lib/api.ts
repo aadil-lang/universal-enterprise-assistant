@@ -29,12 +29,23 @@ export interface ChatCitation {
   filename: string;
 }
 
+export interface ConfirmationPrompt {
+  confirmation_token: string;
+  transaction_type: string;
+  summary_title: string;
+  details: Record<string, any>;
+  expires_at: string;
+}
+
 export interface ChatApiResponse {
   answer: string;
-  category: 'policy' | 'employee' | 'hybrid' | 'out_of_scope';
+  category: 'policy' | 'employee' | 'hybrid' | 'out_of_scope' | 'transactional';
   citations: ChatCitation[];
   mcp_tools_used: string[];
   execution_time_ms: number;
+  confirmation_required?: boolean;
+  confirmation_prompt?: ConfirmationPrompt | null;
+  transaction_result?: any;
 }
 
 export class ApiError extends Error {
@@ -152,7 +163,9 @@ export const api = {
   async sendChatMessage(
     message: string,
     token: string,
-    conversationId?: string
+    conversationId?: string,
+    confirmationAction?: 'confirm' | 'cancel',
+    confirmationToken?: string
   ): Promise<ChatApiResponse> {
     return request<ChatApiResponse>(
       '/api/v1/chat',
@@ -164,6 +177,8 @@ export const api = {
         body: JSON.stringify({
           message: message.trim(),
           ...(conversationId ? { conversation_id: conversationId } : {}),
+          ...(confirmationAction ? { confirmation_action: confirmationAction } : {}),
+          ...(confirmationToken ? { confirmation_token: confirmationToken } : {}),
         }),
       },
       token

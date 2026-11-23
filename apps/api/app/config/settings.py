@@ -102,3 +102,7 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
+
+
+# Compatibility alias for shared MCP modules in demo mode
+get_mcp_settings = get_settings
