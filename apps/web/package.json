@@ -1,6 +1,7 @@
 {
   "name": "web",
-  "version": "0.1.0",
+  "version": "0.1.1",
+  "description": "Acme Universal Enterprise Assistant Web Portal",
   "private": true,
   "type": "module",
   "scripts": {
