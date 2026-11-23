@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Security Architecture & Engineering Decisions — Acme HR & IT Assistant</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-center items-center p-8 font-sans antialiased select-none">
+  <div class="max-w-6xl w-full space-y-8">
+    <div class="text-center space-y-2">
+      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold uppercase tracking-wider">
+        <span>Part 5 • Security & Production Engineering Decisions</span>
+      </div>
+      <h1 class="text-3xl font-extrabold text-white tracking-tight">Security Boundaries & Adversarial Protections</h1>
+      <p class="text-slate-400 text-sm max-w-2xl mx-auto">
+        Defense-in-depth safeguards protecting employee privacy, preventing prompt injection, and eliminating data mutation risks.
+      </p>
+    </div>
+
+    <!-- Security Pillars Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
+      <!-- 1. Read-Only MCP Tools -->
+      <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
+        <div class="w-10 h-10 rounded-xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center font-bold text-lg">
+          01
+        </div>
+        <h2 class="text-base font-bold text-white">Read-Only FastMCP Boundaries</h2>
+        <p class="text-xs text-slate-400 leading-relaxed">
+          The Model Context Protocol integration strictly exposes 4 read-only employee database functions. The assistant possesses zero tools to create, update, or delete records.
+        </p>
+        <div class="bg-slate-950/60 p-3 rounded-lg border border-slate-800/80 text-[11px] font-mono text-cyan-300">
+          • get_employee_profile<br>
+          • get_employee_leave_balances<br>
+          • get_employee_assigned_assets<br>
+          • get_employee_it_tickets
+        </div>
+      </div>
+
+      <!-- 2. Peer Record Isolation -->
+      <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
+        <div class="w-10 h-10 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center font-bold text-lg">
+          02
+        </div>
+        <h2 class="text-base font-bold text-white">Employee Peer Record Isolation</h2>
+        <p class="text-xs text-slate-400 leading-relaxed">
+          Every tool invocation evaluates the caller's JWT claims. Regular employees cannot view peer records; attempts to query colleagues return HTTP 403 / Access Denied.
+        </p>
+        <div class="bg-slate-950/60 p-3 rounded-lg border border-slate-800/80 text-[11px] font-mono text-purple-300">
+          Bob (E102) ➔ Query Carol (E103)<br>
+          ➔ BLOCKED by MCP Client<br>
+          HR Admin (E101) ➔ Allowed (Audited)
+        </div>
+      </div>
+
+      <!-- 3. Prompt Injection Defense -->
+      <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
+        <div class="w-10 h-10 rounded-xl bg-rose-500/20 text-rose-400 flex items-center justify-center font-bold text-lg">
+          03
+        </div>
+        <h2 class="text-base font-bold text-white">Adversarial Injection Defense</h2>
+        <p class="text-xs text-slate-400 leading-relaxed">
+          Input guardrails intercept "ignore previous instructions", system prompt leak attempts, and secret harvesting prior to state machine execution.
+        </p>
+        <div class="bg-slate-950/60 p-3 rounded-lg border border-slate-800/80 text-[11px] font-mono text-rose-300">
+          • 14/14 Adversarial Tests Passed<br>
+          • XML-Isolated Untrusted Policy Text<br>
+          • Zero Internal Prompt Disclosures
+        </div>
+      </div>
+
+      <!-- 4. HMAC Internal Service Signing -->
+      <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
+        <div class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-lg">
+          04
+        </div>
+        <h2 class="text-base font-bold text-white">HMAC Service Authentication</h2>
+        <p class="text-xs text-slate-400 leading-relaxed">
+          Internal HTTP calls between FastAPI and FastMCP are signed using HMAC-SHA256 headers with epoch replay protection, blocking lateral network tampering.
+        </p>
+        <div class="bg-slate-950/60 p-3 rounded-lg border border-slate-800/80 text-[11px] font-mono text-amber-300">
+          X-Acme-Timestamp: 1795353600<br>
+          X-Acme-Signature: sha256=9f83...<br>
+          Replay Window: 30 seconds
+        </div>
+      </div>
+
+      <!-- 5. HttpOnly Cookie Session Security -->
+      <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
+        <div class="w-10 h-10 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold text-lg">
+          05
+        </div>
+        <h2 class="text-base font-bold text-white">HttpOnly Cookie Transport</h2>
+        <p class="text-xs text-slate-400 leading-relaxed">
+          JWT access tokens are issued as HttpOnly, SameSite=Lax cookies, completely eliminating client-side token exposure to malicious JavaScript or XSS vectors.
+        </p>
+        <div class="bg-slate-950/60 p-3 rounded-lg border border-slate-800/80 text-[11px] font-mono text-blue-300">
+          Set-Cookie: acme_access_token=...<br>
+          HttpOnly; SameSite=Lax; Path=/<br>
+          Strict Content Security Policy
+        </div>
+      </div>
+
+      <!-- 6. Citation Grounding -->
+      <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
+        <div class="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-lg">
+          06
+        </div>
+        <h2 class="text-base font-bold text-white">Active-Version Citation Grounding</h2>
+        <p class="text-xs text-slate-400 leading-relaxed">
+          Every retrieved vector chunk is verified against the PostgreSQL active checksum pointer. Inactive or superseded policy versions are discarded automatically.
+        </p>
+        <div class="bg-slate-950/60 p-3 rounded-lg border border-slate-800/80 text-[11px] font-mono text-emerald-300">
+          • Document Registry Integrity<br>
+          • 100% Citation Grounding<br>
+          • Zero Untracked Hallucinations
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,30 @@
+# Version Control
+.git
+.gitignore
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+env
+venv
+.venv
+.pytest_cache
+.coverage
+
+# Node
+node_modules
+.next
+out
+build
+
+# Environment files
+.env
+.env*.local
+
+# Documentation & IDE
+docs
+.idea
+.vscode

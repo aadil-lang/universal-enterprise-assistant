@@ -1,0 +1,118 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: acme-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-acme_app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-acme_secure_dev_pw_2026}
+      POSTGRES_DB: ${POSTGRES_DB:-acme_assistant}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infrastructure/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-acme_app} -d ${POSTGRES_DB:-acme_assistant}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - backend_internal
+
+  chromadb:
+    image: chromadb/chroma:1.4.4@sha256:1e0b73a187a28757c572acba508c46f48c9e8b0acaf5c20e6d95cdedce1acdf6
+    container_name: acme-chromadb
+    restart: unless-stopped
+    environment:
+      IS_PERSISTENT: "TRUE"
+      ANONYMIZED_TELEMETRY: "FALSE"
+    expose:
+      - "8000"
+    volumes:
+      - chroma_data:/chroma/chroma
+    networks:
+      - backend_internal
+
+  mcp-server:
+    build:
+      context: ./packages/mcp_server
+      dockerfile: Dockerfile
+    container_name: acme-mcp-server
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-acme_app}:${POSTGRES_PASSWORD:-acme_secure_dev_pw_2026}@postgres:5432/${POSTGRES_DB:-acme_assistant}
+      INTERNAL_MCP_SECRET: ${INTERNAL_MCP_SECRET:-acme-mcp-internal-secret-change-in-production}
+      DEMO_FISCAL_YEAR: ${DEMO_FISCAL_YEAR:-2026}
+      MCP_HOST: "0.0.0.0"
+      MCP_PORT: "8001"
+    expose:
+      - "8001"
+    networks:
+      - backend_internal
+
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    container_name: acme-api
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      chromadb:
+        condition: service_started
+      mcp-server:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-acme_app}:${POSTGRES_PASSWORD:-acme_secure_dev_pw_2026}@postgres:5432/${POSTGRES_DB:-acme_assistant}
+      CHROMA_HOST: chromadb
+      CHROMA_PORT: "8000"
+      MCP_HOST: mcp-server
+      MCP_PORT: "8001"
+      INTERNAL_MCP_SECRET: ${INTERNAL_MCP_SECRET:-acme-mcp-internal-secret-change-in-production}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-acme-jwt-secret-key-32-chars-minimum-prod}
+      DEMO_FISCAL_YEAR: ${DEMO_FISCAL_YEAR:-2026}
+      APP_ENV: development
+      LLM_PROVIDER: ${LLM_PROVIDER:-gemini}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GEMINI_BASE_URL: ${GEMINI_BASE_URL:-https://generativelanguage.googleapis.com/v1beta/openai/}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash-lite}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_API_BASE: ${OPENAI_API_BASE:-https://api.openai.com/v1}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+    ports:
+      - "8000:8000"
+    networks:
+      - backend_internal
+      - frontend_net
+
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+    container_name: acme-web
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+    ports:
+      - "3000:3000"
+    networks:
+      - frontend_net
+
+networks:
+  backend_internal:
+    driver: bridge
+  frontend_net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  chroma_data:

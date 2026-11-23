@@ -1,0 +1,69 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R
+   /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >>
+>>
+endobj
+4 0 obj
+<< /Length 1029 >>
+stream
+BT
+/F1 18 Tf
+50 720 Td
+(Acme Corporation - Employee Leave Policy) Tj
+0 -30 Td
+/F2 10 Tf
+(Document ID: POL-HR-2026-02  |  Effective Date: January 1, 2026  |  Status: Active) Tj
+0 -40 Td
+/F1 14 Tf
+(1. Purpose and Scope) Tj
+0 -20 Td
+/F2 11 Tf
+(This policy outlines vacation accrual, sick leave, and rollover rules for all Acme Corporation employees.) Tj
+0 -30 Td
+/F1 14 Tf
+(2. Annual Vacation Leave Accrual and Rollover) Tj
+0 -20 Td
+/F2 11 Tf
+(Acme employees accrue annual vacation leave at a rate of 18 days per calendar year.) Tj
+0 -18 Td
+(Unused vacation days may be rolled over into the next fiscal year, up to a maximum rollover cap of 5 days.) Tj
+0 -18 Td
+(Any accrued vacation beyond the 5-day rollover cap is forfeited at the end of the calendar year.) Tj
+0 -30 Td
+/F1 14 Tf
+(3. Sick Leave Accrual and Carryover) Tj
+0 -20 Td
+/F2 11 Tf
+(Employees accrue sick leave at a rate of 10 days per calendar year.) Tj
+0 -18 Td
+(Unused sick leave can be carried over into subsequent years up to a maximum rollover cap of 5 days.) Tj
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
+endobj
+6 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+xref
+0 7
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000254 00000 n 
+0000001335 00000 n 
+0000001410 00000 n 
+trailer
+<< /Size 7 /Root 1 0 R >>
+startxref
+1480
+%%EOF
