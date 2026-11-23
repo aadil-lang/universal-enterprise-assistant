@@ -42,10 +42,14 @@ class Settings(BaseSettings):
     POSTGRES_USER: str = Field(default="acme_app")
     POSTGRES_PASSWORD: str = Field(default="acme_secure_dev_pw_2026")
 
-    # ChromaDB Vector Store & Ingestion Pipeline
+    # Vector Store & Ingestion Pipeline (ChromaDB / Qdrant)
+    VECTOR_STORE_PROVIDER: str = Field(default="chroma", description="Vector store provider: 'chroma' or 'qdrant'")
     CHROMA_HOST: str = Field(default="localhost")
     CHROMA_PORT: int = Field(default=8000)
     CHROMA_COLLECTION: str = Field(default="company_policies")
+    QDRANT_URL: Optional[str] = Field(default=None, description="Qdrant Cloud cluster endpoint")
+    QDRANT_API_KEY: Optional[str] = Field(default=None, description="Qdrant Cloud API Key")
+    QDRANT_COLLECTION: str = Field(default="company_policies", description="Target Qdrant collection name")
     EMBEDDING_MODEL: str = Field(default="sentence-transformers/all-MiniLM-L6-v2")
     DOCUMENTS_DIR: str = Field(default="data/uploads", description="Base directory for uploaded enterprise policy documents")
     CHUNK_SIZE: int = Field(default=800, description="Target character length per text chunk")

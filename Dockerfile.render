@@ -1,37 +1,49 @@
+# Production Dockerfile for Render Free Deployment
+# Co-locates FastAPI Orchestrator (Public) and FastMCP Tool Server (Private Loopback)
 FROM python:3.12-slim
 
 WORKDIR /app
 
-# Install system dependencies
+# Prevent Python from writing .pyc files and enable unbuffered output
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+# Install essential system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements from both services
+# Create unprivileged runtime user
+RUN groupadd -g 1000 appuser && \
+    useradd -u 1000 -g appuser -s /bin/bash -m appuser
+
+# Copy dependency specifications and install
 COPY apps/api/requirements.txt ./api-requirements.txt
 COPY packages/mcp_server/requirements.txt ./mcp-requirements.txt
 
-# Install combined dependencies
-RUN pip install --no-cache-dir -r api-requirements.txt && \
-    pip install --no-cache-dir -r mcp-requirements.txt
+RUN pip install --no-cache-dir -r ./api-requirements.txt && \
+    pip install --no-cache-dir -r ./mcp-requirements.txt && \
+    pip install --no-cache-dir "qdrant-client>=1.9.0"
 
-# Copy application source code
-COPY apps/api ./apps/api
-COPY packages/mcp_server ./packages/mcp_server
+# Copy application sources
+COPY apps/api/app ./apps/api/app
+COPY packages/mcp_server/app ./packages/mcp_server/app
+COPY scripts/start_render.py ./scripts/start_render.py
 COPY infrastructure ./infrastructure
-COPY scripts ./scripts
 
-# Expose Render standard port
-EXPOSE 10000
+# Set permissions
+RUN chown -R appuser:appuser /app
 
-ENV PORT=10000
-ENV PYTHONPATH="/app/apps/api:/app/packages/mcp_server"
-ENV APP_ENV="production"
+# Switch to unprivileged runtime user
+USER appuser
 
-# Healthcheck on FastAPI endpoint
+# Expose Render default port
+EXPOSE 8000
+
+# Health check against lightweight liveness probe
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD curl -f http://localhost:10000/health/live || exit 1
+    CMD curl -f http://localhost:${PORT:-8000}/health/live || exit 1
 
-# Start unified runner (FastMCP + FastAPI)
+# Launch unified entrypoint
 CMD ["python", "scripts/start_render.py"]

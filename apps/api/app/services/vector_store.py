@@ -6,11 +6,19 @@ and structured metadata (document_id, filename, title, category, chunk_index, se
 
 import logging
 import os
+import uuid
 from typing import Any, Dict, List, Optional
 
 import chromadb
 from chromadb.api import ClientAPI
 from chromadb.config import Settings as ChromaSettings
+
+try:
+    from qdrant_client import QdrantClient
+    from qdrant_client.http import models as qmodels
+except ImportError:
+    QdrantClient = None
+    qmodels = None
 
 from app.config.settings import get_settings
 from app.schemas.document import DocumentChunk
@@ -20,19 +28,225 @@ logger = logging.getLogger(__name__)
 
 
 class VectorStoreError(Exception):
-    """Raised when ChromaDB collection operations fail."""
+    """Raised when vector store collection operations fail."""
     pass
+
+
+class QdrantVectorStoreBackend:
+    """
+    Qdrant Cloud implementation for persistent, high-availability cloud vector search.
+    Implements identical interface to ChromaDB VectorStoreService.
+    """
+
+    def __init__(self, url: str, api_key: Optional[str] = None, collection_name: str = "company_policies"):
+        if QdrantClient is None:
+            raise VectorStoreError(
+                "qdrant-client package is required for Qdrant vector store. "
+                "Install via 'pip install qdrant-client'."
+            )
+        self.url = url
+        self.api_key = api_key
+        self.collection_name = collection_name
+        self.settings = get_settings()
+        self.client = QdrantClient(url=self.url, api_key=self.api_key, timeout=15.0)
+        self._ensure_collection()
+
+    def _ensure_collection(self) -> None:
+        """Ensures the 384-dimensional cosine similarity collection exists."""
+        try:
+            if not self.client.collection_exists(self.collection_name):
+                self.client.create_collection(
+                    collection_name=self.collection_name,
+                    vectors_config=qmodels.VectorParams(size=384, distance=qmodels.Distance.COSINE),
+                )
+                logger.info("Created Qdrant collection '%s' with 384-dim Cosine distance.", self.collection_name)
+        except Exception as e:
+            logger.warning("Could not auto-create Qdrant collection '%s': %s", self.collection_name, e)
+
+    def index_document_chunks(
+        self,
+        document_id: str,
+        filename: str,
+        title: str,
+        category: str,
+        chunks: List[DocumentChunk],
+    ) -> int:
+        if not chunks:
+            return 0
+
+        embedder = get_embedding_service(self.settings.EMBEDDING_MODEL)
+        texts = [chunk.text for chunk in chunks]
+        embeddings = embedder.embed_texts(texts)
+
+        points = []
+        point_ids = []
+        for chunk, emb in zip(chunks, embeddings):
+            # Deterministic UUID from chunk_id
+            pid = str(uuid.uuid5(uuid.NAMESPACE_DNS, chunk.chunk_id))
+            point_ids.append(pid)
+            payload = {
+                "chunk_id": chunk.chunk_id,
+                "document_id": str(document_id),
+                "document_checksum": str(chunk.document_checksum),
+                "filename": str(filename),
+                "title": str(title),
+                "category": str(category),
+                "chunk_index": int(chunk.chunk_index),
+                "section": str(chunk.section or "General"),
+                "page_number": int(chunk.page_number or 0),
+                "content_hash": str(chunk.content_hash),
+                "text": chunk.text,
+            }
+            points.append(qmodels.PointStruct(id=pid, vector=emb, payload=payload))
+
+        try:
+            self.client.upsert(collection_name=self.collection_name, points=points)
+            logger.info("Successfully upserted %d points to Qdrant for doc %s", len(points), document_id)
+            return len(points)
+        except Exception as err:
+            logger.error("Failed to upsert points to Qdrant for document %s: %s", document_id, err)
+            raise VectorStoreError(f"Qdrant point upsert failed: {err}") from err
+
+    def cleanup_staged_chunks(self, staged_ids: List[str]) -> None:
+        if not staged_ids:
+            return
+        pids = [str(uuid.uuid5(uuid.NAMESPACE_DNS, cid)) for cid in staged_ids]
+        try:
+            self.client.delete(
+                collection_name=self.collection_name,
+                points_selector=qmodels.PointIdsList(points=pids),
+            )
+        except Exception as e:
+            logger.warning("Error cleaning up staged Qdrant points: %s", e)
+
+    def purge_obsolete_chunks(self, document_id: str, active_checksum: str) -> int:
+        try:
+            filter_doc = qmodels.Filter(
+                must=[qmodels.FieldCondition(key="document_id", match=qmodels.MatchValue(value=str(document_id)))]
+            )
+            hits, _ = self.client.scroll(
+                collection_name=self.collection_name,
+                scroll_filter=filter_doc,
+                limit=1000,
+                with_payload=True,
+            )
+            obsolete_ids = [
+                hit.id for hit in hits
+                if hit.payload and hit.payload.get("document_checksum") != active_checksum
+            ]
+            if obsolete_ids:
+                self.client.delete(
+                    collection_name=self.collection_name,
+                    points_selector=qmodels.PointIdsList(points=obsolete_ids),
+                )
+                logger.info("Purged %d obsolete Qdrant chunks for doc %s", len(obsolete_ids), document_id)
+                return len(obsolete_ids)
+            return 0
+        except Exception as e:
+            logger.warning("Failed to purge obsolete Qdrant chunks: %s", e)
+            return 0
+
+    def delete_document_chunks(self, document_id: str) -> None:
+        try:
+            self.client.delete(
+                collection_name=self.collection_name,
+                points_selector=qmodels.Filter(
+                    must=[qmodels.FieldCondition(key="document_id", match=qmodels.MatchValue(value=str(document_id)))]
+                ),
+            )
+        except Exception as e:
+            logger.warning("Error deleting Qdrant document chunks for %s: %s", document_id, e)
+
+    def count_document_chunks(self, document_id: str) -> int:
+        try:
+            res = self.client.count(
+                collection_name=self.collection_name,
+                count_filter=qmodels.Filter(
+                    must=[qmodels.FieldCondition(key="document_id", match=qmodels.MatchValue(value=str(document_id)))]
+                ),
+            )
+            return res.count
+        except Exception:
+            return 0
+
+    def query_policy_chunks(
+        self,
+        query_text: str,
+        n_results: int = 5,
+        where: Optional[Dict[str, Any]] = None,
+    ) -> List[Dict[str, Any]]:
+        if not query_text or not query_text.strip():
+            return []
+
+        embedder = get_embedding_service(self.settings.EMBEDDING_MODEL)
+        query_vec = embedder.embed_query(query_text)
+
+        qfilter = None
+        if where:
+            conditions = []
+            for k, v in where.items():
+                conditions.append(qmodels.FieldCondition(key=k, match=qmodels.MatchValue(value=v)))
+            if conditions:
+                qfilter = qmodels.Filter(must=conditions)
+
+        try:
+            hits = self.client.search(
+                collection_name=self.collection_name,
+                query_vector=query_vec,
+                limit=n_results,
+                query_filter=qfilter,
+                with_payload=True,
+            )
+        except Exception as e:
+            logger.error("Qdrant search failed: %s", e)
+            raise VectorStoreError(f"Qdrant vector search failed: {e}") from e
+
+        chunks = []
+        for hit in hits:
+            payload = hit.payload or {}
+            chunks.append(
+                {
+                    "chunk_id": payload.get("chunk_id", str(hit.id)),
+                    "text": payload.get("text", ""),
+                    "metadata": {
+                        "document_id": payload.get("document_id"),
+                        "document_checksum": payload.get("document_checksum"),
+                        "filename": payload.get("filename"),
+                        "title": payload.get("title"),
+                        "category": payload.get("category"),
+                        "chunk_index": payload.get("chunk_index"),
+                        "section": payload.get("section"),
+                        "page_number": payload.get("page_number"),
+                        "content_hash": payload.get("content_hash"),
+                    },
+                    "distance": 1.0 - hit.score if hit.score is not None else 0.0,
+                }
+            )
+        return chunks
 
 
 class VectorStoreService:
     """
-    Manages collection lifecycle and vector indexing in ChromaDB.
+    Unified Vector Store Service.
+    Seamlessly routes between ChromaDB (local/test) and Qdrant (cloud production).
     """
 
     def __init__(self, client: Optional[ClientAPI] = None, collection_name: Optional[str] = None):
         self.settings = get_settings()
         self.collection_name = collection_name or self.settings.CHROMA_COLLECTION
-        self.client = client or self._init_client()
+        self._backend = None
+
+        is_test_env = os.getenv("PYTEST_CURRENT_TEST") or self.settings.APP_ENV == "test"
+        if not is_test_env and self.settings.VECTOR_STORE_PROVIDER == "qdrant" and self.settings.QDRANT_URL:
+            logger.info("Initializing QdrantVectorStoreBackend for cloud vector storage.")
+            self._backend = QdrantVectorStoreBackend(
+                url=self.settings.QDRANT_URL,
+                api_key=self.settings.QDRANT_API_KEY,
+                collection_name=self.settings.QDRANT_COLLECTION or self.collection_name,
+            )
+            self.client = None
+        else:
+            self.client = client or self._init_client()
         self._collection = None
 
     def _init_client(self) -> ClientAPI:
@@ -76,14 +290,15 @@ class VectorStoreService:
         category: str,
         chunks: List[DocumentChunk],
     ) -> int:
-        """
-        Stages and indexes chunks into ChromaDB safely using disjoint version-specific chunk IDs.
-        Preserves existing indexed chunks unchanged while staging and verifying replacement chunks.
-        Cleans up staged replacement chunks on failure without impacting the active version.
+        if self._backend is not None:
+            return self._backend.index_document_chunks(
+                document_id=document_id,
+                filename=filename,
+                title=title,
+                category=category,
+                chunks=chunks,
+            )
 
-        Returns:
-            int: Number of chunks successfully staged and verified.
-        """
         if not chunks:
             return 0
 
@@ -180,11 +395,8 @@ class VectorStoreService:
                 raise VectorStoreError(f"Chunk index mismatch for staged chunk {cid}")
 
     def cleanup_staged_chunks(self, staged_ids: List[str]) -> None:
-        """
-        Deletes staged replacement chunks on failure.
-        Because replacement chunk IDs are version-specific and disjoint,
-        this never affects previous active document versions.
-        """
+        if self._backend is not None:
+            return self._backend.cleanup_staged_chunks(staged_ids)
         if not staged_ids:
             return
         try:
@@ -194,11 +406,8 @@ class VectorStoreService:
             logger.warning("Error cleaning up staged chunks %s: %s", staged_ids, e)
 
     def purge_obsolete_chunks(self, document_id: str, active_checksum: str) -> int:
-        """
-        Deletes chunks belonging to older versions of a document.
-        Must only be invoked after PostgreSQL has successfully committed the active checksum update.
-        Catches errors and logs a warning without failing the ingestion request.
-        """
+        if self._backend is not None:
+            return self._backend.purge_obsolete_chunks(document_id, active_checksum)
         try:
             res = self.collection.get(
                 where={"document_id": str(document_id)},
@@ -230,7 +439,8 @@ class VectorStoreService:
             return 0
 
     def delete_document_chunks(self, document_id: str) -> None:
-        """Removes all chunks associated with a document_id."""
+        if self._backend is not None:
+            return self._backend.delete_document_chunks(document_id)
         try:
             # Query existing chunk IDs for this document
             existing = self.collection.get(
@@ -245,7 +455,8 @@ class VectorStoreService:
             logger.warning("Could not delete existing chunks for document %s: %s", document_id, e)
 
     def count_document_chunks(self, document_id: str) -> int:
-        """Returns the number of indexed chunks for a document."""
+        if self._backend is not None:
+            return self._backend.count_document_chunks(document_id)
         try:
             res = self.collection.get(
                 where={"document_id": str(document_id)},
@@ -261,11 +472,9 @@ class VectorStoreService:
         n_results: int = 5,
         where: Optional[Dict[str, Any]] = None,
     ) -> List[Dict[str, Any]]:
-        """
-        Queries the vector index for chunks semantically relevant to query_text.
-        Computes query embedding via EmbeddingService and queries the collection.
-        Returns a list of dicts with chunk_id, text, metadata, and distance.
-        """
+        if self._backend is not None:
+            return self._backend.query_policy_chunks(query_text, n_results=n_results, where=where)
+
         if not query_text or not query_text.strip():
             return []
 
