@@ -39,7 +39,7 @@ def seed_policies(api_url: str):
     try:
         auth_res = httpx.post(
             f"{api_url}/api/v1/auth/login",
-            json={"employee_number": "E101"},
+            json={"email": "alice@acme.com", "password": "Password123!"},
             timeout=15.0,
         )
         if auth_res.status_code != 200:
@@ -80,7 +80,7 @@ def seed_policies(api_url: str):
             data = {"title": title, "category": category}
             
             try:
-                res = client.post(f"{api_url}/api/v1/documents/upload", files=files, data=data)
+                res = client.post(f"{api_url}/documents/upload", files=files, data=data)
                 if res.status_code in (200, 201):
                     doc_data = res.json()
                     chunk_count = doc_data.get("chunks_count", 0)
