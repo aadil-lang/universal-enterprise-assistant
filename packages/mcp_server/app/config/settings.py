@@ -35,6 +35,18 @@ class MCPSettings(BaseSettings):
     POSTGRES_USER: str = Field(default="acme_app")
     POSTGRES_PASSWORD: str = Field(default="acme_secure_dev_pw_2026")
 
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_database_url(cls, data: dict) -> dict:
+        if isinstance(data, dict):
+            db_url = data.get("DATABASE_URL")
+            if db_url and isinstance(db_url, str):
+                if db_url.startswith("postgres://"):
+                    data["DATABASE_URL"] = db_url.replace("postgres://", "postgresql+psycopg2://", 1)
+                elif db_url.startswith("postgresql://") and not db_url.startswith("postgresql+psycopg2://"):
+                    data["DATABASE_URL"] = db_url.replace("postgresql://", "postgresql+psycopg2://", 1)
+        return data
+
     @model_validator(mode="after")
     def validate_production_secrets(self) -> "MCPSettings":
         """

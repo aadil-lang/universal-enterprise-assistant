@@ -26,6 +26,12 @@ class Settings(BaseSettings):
     JWT_EXPIRATION_MINUTES: int = Field(default=60)
     INTERNAL_MCP_SECRET: str = Field(default="dev_insecure_internal_mcp_hmac_secret_min_32")
 
+    # CORS Configuration for Frontend Deployments (e.g. Vercel)
+    CORS_ORIGINS: str = Field(
+        default="http://localhost:3000,http://127.0.0.1:3000,https://*.vercel.app",
+        description="Comma-separated allowed CORS origins or wildcards"
+    )
+
     # PostgreSQL Database (API uses Psycopg 3 via postgresql+psycopg://)
     DATABASE_URL: str = Field(
         default="postgresql+psycopg://acme_app:acme_secure_dev_pw_2026@localhost:5432/acme_assistant"
@@ -71,6 +77,18 @@ class Settings(BaseSettings):
     @property
     def mcp_base_url(self) -> str:
         return f"http://{self.MCP_HOST}:{self.MCP_PORT}"
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_database_url(cls, data: dict) -> dict:
+        if isinstance(data, dict):
+            db_url = data.get("DATABASE_URL")
+            if db_url and isinstance(db_url, str):
+                if db_url.startswith("postgres://"):
+                    data["DATABASE_URL"] = db_url.replace("postgres://", "postgresql+psycopg://", 1)
+                elif db_url.startswith("postgresql://") and not db_url.startswith("postgresql+psycopg://"):
+                    data["DATABASE_URL"] = db_url.replace("postgresql://", "postgresql+psycopg://", 1)
+        return data
 
     @model_validator(mode="after")
     def validate_production_secrets(self) -> "Settings":

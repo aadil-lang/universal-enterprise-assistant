@@ -37,9 +37,13 @@ async def add_security_headers(request: Request, call_next):
     return response
 
 # CORS Middleware configuration
+cors_origins_raw = getattr(settings, "CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000")
+cors_origins = [o.strip() for o in cors_origins_raw.split(",") if o.strip() and "*" not in o]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=cors_origins if cors_origins else ["*"],
+    allow_origin_regex=r"^https://.*\.vercel\.app$" if "vercel.app" in cors_origins_raw else None,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

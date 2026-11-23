@@ -1,0 +1,88 @@
+# Render Blueprint Specification for Universal Enterprise Assistant
+# Deploy via Render Dashboard -> Blueprints -> New Blueprint Instance
+version: "1"
+
+databases:
+  - name: acme-postgres
+    databaseName: acme_assistant
+    user: acme_app
+    plan: starter # or 'free' (30-day limit on free)
+    postgresMajorVersion: 16
+
+services:
+  # 1. ChromaDB Vector Database (Private Service)
+  - type: pserv
+    name: acme-chromadb
+    runtime: image
+    image:
+      url: chromadb/chroma:1.4.4
+    plan: starter
+    envVars:
+      - key: IS_PERSISTENT
+        value: "TRUE"
+      - key: ANONYMIZED_TELEMETRY
+        value: "FALSE"
+      - key: PORT
+        value: "8000"
+
+  # 2. FastMCP Internal Tool Server (Private Service)
+  - type: pserv
+    name: acme-mcp-server
+    runtime: docker
+    dockerContext: ./packages/mcp_server
+    dockerfilePath: ./packages/mcp_server/Dockerfile
+    plan: starter
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: acme-postgres
+          property: connectionString
+      - key: INTERNAL_MCP_SECRET
+        generateValue: true
+      - key: DEMO_FISCAL_YEAR
+        value: "2026"
+      - key: MCP_HOST
+        value: "0.0.0.0"
+      - key: MCP_PORT
+        value: "8001"
+
+  # 3. FastAPI Backend Orchestrator (Public Web Service)
+  - type: web
+    name: acme-api
+    runtime: docker
+    dockerContext: ./apps/api
+    dockerfilePath: ./apps/api/Dockerfile
+    plan: starter # or 'free'
+    healthCheckPath: /health/live
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: acme-postgres
+          property: connectionString
+      - key: CHROMA_HOST
+        value: acme-chromadb
+      - key: CHROMA_PORT
+        value: "8000"
+      - key: MCP_HOST
+        value: acme-mcp-server
+      - key: MCP_PORT
+        value: "8001"
+      - key: INTERNAL_MCP_SECRET
+        fromService:
+          type: pserv
+          name: acme-mcp-server
+          envVarKey: INTERNAL_MCP_SECRET
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: DEMO_FISCAL_YEAR
+        value: "2026"
+      - key: APP_ENV
+        value: production
+      - key: LLM_PROVIDER
+        value: gemini
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-3.5-flash-lite
+      - key: CORS_ORIGINS
+        value: "http://localhost:3000,https://*.vercel.app"
