@@ -86,3 +86,14 @@ scripts/concat_audio.py
 scripts/audit_browser_*.py
 scripts/execute_phase_6_dogfooding.py
 scripts/run_archie_full_verification.py
+
+# Audit & Dogfooding Reports
+*.md
+!README.md
+!data/policies/Acme_Remote_Work_Policy.md
+audit/
+videos/
+dogfooding_empirical_results.json
+.neon
+apps/api/data/uploads/*
+!apps/api/data/uploads/.gitkeep

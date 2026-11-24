@@ -49,41 +49,86 @@ CRITICAL INSTRUCTIONS:
 7. Scope Boundaries: For questions outside HR and IT (e.g. creative writing, finance, crypto, recipes, general trivia), politely decline: "I am an enterprise HR & IT assistant. I can only assist with company policies and your employee records."
 """
 
-INTENT_SYSTEM_PROMPT = """You are the Intent Understanding and Dynamic Evidence Router for Acme Corporation's Enterprise HR & IT Assistant.
-Your task is to analyze an employee inquiry and output a structured JSON decision indicating what evidence sources are required.
+INTENT_SYSTEM_PROMPT = """You are the Conversational Understanding and Dynamic Orchestration Engine for Acme Corporation's Enterprise HR & IT Assistant, named Archie.
+Your task is to analyze an employee's message within the active conversation history and produce a structured JSON decision.
 
-APPROVED RETRIEVAL SOURCES:
-1. "policy_rag" (Company-wide policies, guidelines, and procedures):
-   - Scope: employee benefits, perks, wellness programs, allowances, stipends (e.g. ergonomic home office stipend), leave entitlements/accrual rules/caps/rollover, remote work policies, equipment replacement/refresh guidelines, VPN usage rules, pet insurance, travel policy, company procedures.
-   - Requires: requires_policy_evidence=true, sources=["policy_rag"].
+CORE PRINCIPLE:
+- Understand conversational exchanges naturally (greetings, acknowledgements, farewells, capability questions, clarifications).
+- DO NOT reject polite conversational messages as out-of-scope.
+- Ground enterprise questions in approved retrieval sources (policy RAG and employee FastMCP).
+- Identify transactional workflows and extract parameters conversationally.
+
+INTERACTION TYPES:
+1. "greeting":
+   - Examples: "Hey Archie", "Hello", "Hi Archie", "Good morning", "Hey"
+   - Requirements: requires_retrieval=false, sources=[], is_out_of_scope=false.
+   - Set "proposed_direct_response" to a warm, professional greeting introducing Archie and inviting questions about company policies or employee records.
+
+2. "acknowledgement":
+   - Examples: "Thanks Archie", "Thank you", "Got it", "Understood", "Awesome"
+   - Requirements: requires_retrieval=false, sources=[], is_out_of_scope=false.
+   - Set "proposed_direct_response" to a polite closing/acknowledgement offer of further help.
+
+3. "farewell":
+   - Examples: "Goodbye", "Bye Archie", "Have a good day"
+   - Requirements: requires_retrieval=false, sources=[], is_out_of_scope=false.
+   - Set "proposed_direct_response" to a friendly farewell.
+
+4. "general_inquiry":
+   - Examples: "Who are you?", "What can you do?", "How do you work?", "Help"
+   - Requirements: requires_retrieval=false, sources=[], is_out_of_scope=false.
+   - Set "proposed_direct_response" explaining your capabilities across Acme HR policies, leave balances, IT equipment, tickets, and workplace workflows.
+
+5. "policy_inquiry":
+   - Scope: Company-wide policies, guidelines, and benefits (e.g. employee perks, wellness allowances, ergonomic home office stipend, leave rules/caps/rollover/accrual, remote work policy, equipment refresh guidelines, VPN rules, pet insurance).
+   - Requirements: interaction_type="policy_inquiry", requires_retrieval=true, requires_policy_evidence=true, sources=["policy_rag"].
    - Include an optimized semantic search query in "search_query".
 
-2. "employee_mcp" (Individual employee database records):
-   - Scope: personal leave balances, currently assigned hardware/laptops/serial numbers, open/past IT tickets, personal employment profile/status.
-   - Approved tools:
+6. "employee_inquiry":
+   - Scope: Individual employee database records (e.g. personal remaining leave balances, assigned hardware/laptop serials, open/past IT tickets, profile status).
+   - Approved FastMCP tools:
      * "get_employee_leave_balances" (personal vacation/annual/sick leave days remaining/used)
      * "get_employee_assigned_assets" (assigned laptop, hardware specs, asset tag)
      * "get_employee_it_tickets" (open or closed IT support tickets)
      * "get_employee_profile" (job title, department, employment status)
-   - Requires: requires_employee_context=true, sources=["employee_mcp"], suggested_mcp_tools=[...].
+   - Requirements: interaction_type="employee_inquiry", requires_retrieval=true, requires_employee_context=true, sources=["employee_mcp"], suggested_mcp_tools=[...].
 
-3. Hybrid ["policy_rag", "employee_mcp"]:
-   - When the question requires BOTH company policy entitlement/rules AND personal employee records (e.g. 'What benefits do we get, and how much annual leave do I have left?').
-   - Requires: requires_policy_evidence=true, requires_employee_context=true, sources=["policy_rag", "employee_mcp"].
+7. "hybrid_inquiry":
+   - When the question requires BOTH general company policy/rules AND individual employee records (e.g. 'What is the annual leave rollover policy, and how many days do I have left?').
+   - Requirements: interaction_type="hybrid_inquiry", requires_retrieval=true, requires_policy_evidence=true, requires_employee_context=true, sources=["policy_rag", "employee_mcp"].
 
-4. Out-of-Scope (is_out_of_scope=true, sources=[]):
-   - ONLY for queries genuinely outside enterprise HR and IT (e.g. poetry, creative writing, crypto, stock prices, weather, cooking recipes, general trivia, sports).
-   - DO NOT reject legitimate HR or IT inquiries such as perks, benefits, equipment, or policies.
+8. "transaction_request":
+   - When an employee initiates or continues an enterprise workflow:
+     * leave application ("I need to take 2 days off next week", "apply for sick leave Dec 10-12")
+     * IT support ticket ("my laptop screen is flickering, open a ticket")
+     * expense reimbursement ("submit expense for 45 dollars for client dinner")
+     * equipment request ("request an external monitor for my desk")
+     * contact update ("update my emergency contact phone to 555-0199")
+     * cancel leave ("cancel my pending vacation request")
+     * check request status ("what is the status of my leave request?")
+   - Requirements: interaction_type="transaction_request", transaction_type="<leave|it_ticket|reimbursement|hr_service|equipment|contact_update|cancel_leave|update_it_ticket|request_status>", extracted_parameters={...}.
+   - If key parameters are missing (e.g. start/end date for leave), set clarification_needed=true and clarification_question to ask for the missing details naturally.
+
+9. "clarification_response":
+   - When the user answers an outstanding clarification question asked by Archie in a prior turn (e.g. User: "Yes, annual leave", or "Starting Dec 10th").
+   - Requirements: interaction_type="clarification_response", resolve against conversation history.
+
+10. "out_of_scope":
+    - ONLY for queries genuinely outside enterprise HR and IT (e.g. poetry, creative writing, cryptocurrency, stock trading, weather, cooking recipes, general trivia, sports).
+    - Requirements: interaction_type="out_of_scope", is_out_of_scope=true, sources=[].
+    - DO NOT classify greetings, pleasantries, or workplace questions as out of scope.
 
 CONVERSATIONAL CONTEXT:
-When conversation history is provided, resolve pronouns ("it", "that", "this", "they", "them", "how much do i have left", "what about carryover") and follow-up topics using the prior turns.
+When conversation history is provided, resolve pronouns ("it", "that", "this", "they", "them", "how much do i have left", "what about sick leave", "what about equipment") using the prior context.
 
 JSON OUTPUT FORMAT:
 You MUST respond with a single valid JSON object strictly matching this schema:
 {
-  "intent": "<policy_query | employee_record_query | hybrid_query | out_of_scope>",
+  "interaction_type": "<greeting | acknowledgement | farewell | general_inquiry | policy_inquiry | employee_inquiry | hybrid_inquiry | transaction_request | clarification_response | out_of_scope>",
+  "intent": "<intent_descriptor>",
   "domains": ["<domain1>", ...],
   "sources": ["<policy_rag and/or employee_mcp>"],
+  "requires_retrieval": <true|false>,
   "requires_policy_evidence": <true|false>,
   "requires_employee_context": <true|false>,
   "suggested_mcp_tools": ["<tool_name>", ...],
@@ -91,6 +136,10 @@ You MUST respond with a single valid JSON object strictly matching this schema:
   "target_employee": "<employee number or null>",
   "is_out_of_scope": <true|false>,
   "clarification_needed": <true|false>,
+  "clarification_question": "<question to user or null>",
+  "transaction_type": "<leave|it_ticket|reimbursement|hr_service|equipment|contact_update|cancel_leave|update_it_ticket|request_status|null>",
+  "extracted_parameters": { ... },
+  "proposed_direct_response": "<direct conversational response for greetings, social, or clarifications, or null>",
   "reasoning": "<brief reasoning>"
 }
 """
@@ -139,20 +188,19 @@ class LLMService:
     ) -> RetrievalDecision:
         """
         Interprets employee inquiries using natural-language understanding
-        and returns a structured retrieval decision (Pydantic validated)
+        and returns a structured conversational decision (Pydantic validated)
         governing dynamic evidence routing between Policy RAG and FastMCP.
+        Enforces: LLM-first language understanding. Never falls back to regex
+        keyword guessing for remote frontier models.
         """
         if self.provider in ("gemini", "openai", "custom"):
-            try:
-                return await self._call_remote_intent_understanding(
-                    question=question,
-                    caller=caller,
-                    history=history,
-                )
-            except Exception as e:
-                logger.warning("Remote LLM intent understanding failed (%s). Falling back to local semantic NLU.", e)
+            return await self._call_remote_intent_understanding(
+                question=question,
+                caller=caller,
+                history=history,
+            )
 
-        return self._understand_intent_local(
+        return self._understand_intent_mock(
             question=question,
             caller=caller,
             history=history,
@@ -167,7 +215,7 @@ class LLMService:
         user_prompt_parts = []
         if history:
             user_prompt_parts.append("CONVERSATION HISTORY:")
-            for turn in history[-4:]:
+            for turn in history[-6:]:
                 q_text = turn.get("question") or turn.get("topic") or ""
                 ans_text = turn.get("answer") or ""
                 user_prompt_parts.append(f"User: {q_text}")
@@ -199,6 +247,7 @@ class LLMService:
         }
 
         max_retries = 2
+        last_error = None
         for attempt in range(max_retries + 1):
             try:
                 async with httpx.AsyncClient(timeout=15.0) as client:
@@ -215,7 +264,8 @@ class LLMService:
                         raw_content = choices[0].get("message", {}).get("content", "{}")
                         cleaned = re.sub(r"^```(?:json)?\s*", "", raw_content.strip(), flags=re.MULTILINE)
                         cleaned = re.sub(r"```$", "", cleaned.strip(), flags=re.MULTILINE)
-                        return RetrievalDecision.model_validate_json(cleaned)
+                        decision = RetrievalDecision.model_validate_json(cleaned)
+                        return decision
 
                 if resp.status_code in (429, 503) and attempt < max_retries:
                     wait_time = 1.0 * (attempt + 1)
@@ -224,29 +274,102 @@ class LLMService:
                     continue
 
                 logger.warning("Upstream LLM intent understanding HTTP status: %d", resp.status_code)
-                raise LLMProviderError(f"HTTP {resp.status_code} from intent understanding provider.")
+                last_error = f"HTTP {resp.status_code} from intent understanding provider: {resp.text}"
 
             except (httpx.TimeoutException, httpx.NetworkError) as ne:
+                last_error = str(ne)
                 if attempt < max_retries:
                     await asyncio.sleep(1.0)
                     continue
-                raise LLMProviderError(f"Network error contacting LLM provider: {ne}")
 
+        raise LLMProviderError(f"Language understanding service temporarily unavailable: {last_error}")
 
-    def _understand_intent_local(
+    def _understand_intent_mock(
         self,
         question: str,
         caller: Optional[Any] = None,
         history: Optional[List[Dict[str, Any]]] = None,
     ) -> RetrievalDecision:
         """
-        Deterministic, comprehensive semantic NLU for offline/mock mode and resilience fallback.
-        Accurately recognizes enterprise HR & IT domains including perks, benefits,
-        allowances, leave policies, equipment, and personal employee records.
+        Deterministic, comprehensive conversational decision engine for test suites and offline mock mode.
+        Recognizes greetings, acknowledgements, farewells, capabilities, transactions,
+        policy inquiries, employee records, and multi-turn contextual follow-ups.
         """
         q = question.lower().strip()
+        clean_q = re.sub(r"[^\w\s]", "", q).strip()
 
-        # 1. Check out of scope
+        caller_name = "there"
+        if caller:
+            name_map = {"E101": "Alice", "E102": "Bob", "E103": "Carol", "E104": "David"}
+            caller_name = name_map.get(getattr(caller, "employee_number", ""), "there")
+
+        # 1. Pure Conversational Pleasantries (Greetings, Acknowledgements, Farewells)
+        has_enterprise_keywords = any(w in q for w in ("leave", "balance", "policy", "policies", "laptop", "ticket", "asset", "vacation", "sick", "pto", "holiday", "benefit", "benefits", "stipend", "equipment", "expense", "reimbursement", "rules"))
+
+        pure_greetings = {"hey", "hi", "hello", "hey archie", "hi archie", "hello archie", "hey there", "hello there", "good morning", "good afternoon", "good evening", "howdy"}
+        is_greeting = (clean_q in pure_greetings or any(clean_q.startswith(g) for g in ("hey archie", "hi archie", "hello archie", "good morning archie")))
+        if is_greeting and not has_enterprise_keywords:
+            return RetrievalDecision(
+                interaction_type="greeting",
+                intent="greeting",
+                domains=["conversational"],
+                sources=[],
+                requires_retrieval=False,
+                requires_policy_evidence=False,
+                requires_employee_context=False,
+                is_out_of_scope=False,
+                proposed_direct_response=f"Hello, {caller_name}! I'm Archie, your Acme HR & IT Assistant. How can I help you today? You can ask me about company policies (leave, remote work, equipment), your remaining leave balance, assigned IT hardware, or submit workplace requests.",
+                reasoning="User offered a standard conversational greeting without an embedded enterprise query.",
+            )
+
+        pure_thanks = {"thanks", "thank you", "thanks archie", "thank you archie", "thx", "got it", "understood", "awesome", "perfect"}
+        is_thanks = (clean_q in pure_thanks or any(clean_q.startswith(t) for t in ("thanks", "thank you", "thx", "appreciate it", "got it", "understood")))
+        if is_thanks and not has_enterprise_keywords:
+            return RetrievalDecision(
+                interaction_type="acknowledgement",
+                intent="acknowledgement",
+                domains=["conversational"],
+                sources=[],
+                requires_retrieval=False,
+                requires_policy_evidence=False,
+                requires_employee_context=False,
+                is_out_of_scope=False,
+                proposed_direct_response="You're very welcome! Let me know if you need any other assistance with company policies or your workplace records.",
+                reasoning="User offered polite acknowledgement/thanks.",
+            )
+
+        pure_farewells = {"bye", "goodbye", "bye archie", "goodbye archie", "see you", "have a good day"}
+        is_farewell = (clean_q in pure_farewells or any(clean_q.startswith(f) for f in ("bye", "goodbye", "see you", "have a good day", "have a great day")))
+        if is_farewell and not has_enterprise_keywords:
+            return RetrievalDecision(
+                interaction_type="farewell",
+                intent="farewell",
+                domains=["conversational"],
+                sources=[],
+                requires_retrieval=False,
+                requires_policy_evidence=False,
+                requires_employee_context=False,
+                is_out_of_scope=False,
+                proposed_direct_response="Goodbye! Have a productive rest of your day. Reach out whenever you need assistance.",
+                reasoning="User offered a farewell.",
+            )
+
+        pure_general = {"who are you", "what can you do", "what are your capabilities", "how can you help", "help", "who is archie"}
+        if clean_q in pure_general:
+            return RetrievalDecision(
+                interaction_type="general_inquiry",
+                intent="general_inquiry",
+                domains=["assistant_capabilities"],
+                sources=[],
+                requires_retrieval=False,
+                requires_policy_evidence=False,
+                requires_employee_context=False,
+                is_out_of_scope=False,
+                proposed_direct_response="I'm Archie, Acme Corporation's Universal Enterprise HR & IT Assistant. I can help you look up official corporate policies (leave, remote work, equipment replacement, benefits), check your personal leave balances, view your assigned IT hardware and tickets, or draft workplace transactions like leave applications.",
+                reasoning="User inquired about Archie's capabilities.",
+            )
+
+        # 2. Check Genuine Out-of-Scope Topics
         out_of_scope_terms = [
             "poem", "poetry", "write a story", "crypto", "bitcoin", "ethereum",
             "stock price", "stock prices", "scrape stock", "weather in", "recipe",
@@ -255,16 +378,18 @@ class LLMService:
         ]
         if any(term in q for term in out_of_scope_terms):
             return RetrievalDecision(
+                interaction_type="out_of_scope",
                 intent="out_of_scope",
                 domains=["general_trivia"],
                 sources=[],
+                requires_retrieval=False,
                 requires_policy_evidence=False,
                 requires_employee_context=False,
                 is_out_of_scope=True,
                 reasoning="Inquiry is unrelated to enterprise HR and IT services.",
             )
 
-        # 2. Conversational context / follow-up resolution
+        # 3. Conversational context / multi-turn follow-up resolution
         last_turn = history[-1] if history else None
         target_emp = None
         emp_match = re.search(r"\b(E\d{3,4})\b", question, re.I)
@@ -285,12 +410,43 @@ class LLMService:
             is_followup = (
                 any(q.startswith(prefix) for prefix in ("and ", "what about ", "how about ", "can i ", "is there ", "do we "))
                 or any(re.search(rf"\b{pr}\b", q) for pr in ("it", "its", "that", "this", "they", "them"))
-                or any(k in q for k in ("carryover", "carry over", "rollover", "roll over", "how much do i have left", "my balance", "left"))
+                or any(k in q for k in ("carryover", "carry over", "rollover", "roll over", "how much do i have left", "my balance", "left", "sick leave", "sick"))
             )
             if is_followup and last_topic:
                 enriched_search_query = f"{last_topic} {question}".strip()
 
-        # 3. Detect domains & requirements
+        # 4. Check Transaction Requests
+        tx_type = None
+        tx_params = {}
+        if any(w in q for w in ("apply for leave", "request leave", "take leave", "take time off", "need time off", "need off", "submit leave", "book leave", "apply for vacation", "apply for sick leave")):
+            tx_type = "leave"
+        elif any(w in q for w in ("create ticket", "raise ticket", "open ticket", "report issue", "submit ticket", "broken screen", "flickering")):
+            tx_type = "it_ticket"
+        elif any(w in q for w in ("reimbursement", "submit expense", "claim expense", "client dinner")):
+            tx_type = "reimbursement"
+        elif any(w in q for w in ("cancel leave", "cancel my leave", "withdraw leave")):
+            tx_type = "cancel_leave"
+        elif any(w in q for w in ("request equipment", "order laptop", "need a monitor", "request monitor")):
+            tx_type = "equipment"
+        elif any(w in q for w in ("status of my", "check status", "request status", "ticket status")):
+            tx_type = "request_status"
+
+        if tx_type:
+            return RetrievalDecision(
+                interaction_type="transaction_request",
+                intent="transaction_request",
+                domains=["transactions", tx_type],
+                sources=["employee_mcp"],
+                requires_retrieval=True,
+                requires_employee_context=True,
+                transaction_type=tx_type,
+                extracted_parameters=tx_params,
+                search_query=question,
+                target_employee=target_emp,
+                reasoning=f"User initiated an enterprise {tx_type} transactional workflow.",
+            )
+
+        # 5. Detect Domains & Retrieval Requirements
         policy_domains = []
         if any(w in q for w in ("benefit", "benefits", "perk", "perks", "stipend", "allowance", "ergonomic", "wellness", "gym", "insurance", "childcare", "pet insurance", "discount", "401k", "pension")):
             policy_domains.append("benefits")
@@ -311,7 +467,7 @@ class LLMService:
             or bool(emp_match)
             or any(name in q for name in ("bob's", "carol's", "alice's", "david's"))
         )
-        if is_followup and any(w in q for w in ("how much do i have", "how many do i have", "my balance", "left", "remaining")):
+        if is_followup and any(w in q for w in ("how much do i have", "how many do i have", "my balance", "left", "remaining", "sick leave", "sick")):
             has_employee_query = True
 
         has_explicit_policy_clause = (
@@ -324,7 +480,6 @@ class LLMService:
             or (any(w in q for w in ("benefit", "benefits", "perk", "perks")) and any(w in q for w in ("get", "provide", "available", "offered", "company", "what")))
         )
 
-
         has_policy_query = (
             has_explicit_policy_clause
             or bool(policy_domains)
@@ -332,14 +487,24 @@ class LLMService:
         )
 
         suggested_tools = []
-        if has_employee_query or (is_followup and any(w in q for w in ("balance", "left", "remaining"))):
-            if any(w in q for w in ("leave", "vacation", "sick", "balance", "day", "days", "pto")) or (is_followup and "leave" in last_topic.lower()):
-                suggested_tools.append("get_employee_leave_balances")
-            if any(w in q for w in ("asset", "laptop", "equipment", "hardware", "device", "tag", "screen")) or (is_followup and any(k in last_topic.lower() for k in ("laptop", "equipment", "hardware"))):
+        if has_employee_query or (is_followup and any(w in q for w in ("balance", "left", "remaining", "sick"))):
+            has_cur_asset = any(w in q for w in ("asset", "laptop", "equipment", "hardware", "device", "tag", "screen"))
+            has_cur_ticket = any(w in q for w in ("ticket", "tickets", "issue", "support"))
+            has_cur_leave = any(w in q for w in ("leave", "vacation", "sick", "balance", "day", "days", "pto"))
+
+            if has_cur_asset:
                 suggested_tools.append("get_employee_assigned_assets")
-            if any(w in q for w in ("ticket", "tickets", "issue", "support")) or (is_followup and "ticket" in last_topic.lower()):
+            elif has_cur_ticket:
                 suggested_tools.append("get_employee_it_tickets")
-            if not suggested_tools:
+            elif has_cur_leave:
+                suggested_tools.append("get_employee_leave_balances")
+            elif is_followup and "leave" in last_topic.lower():
+                suggested_tools.append("get_employee_leave_balances")
+            elif is_followup and any(k in last_topic.lower() for k in ("laptop", "equipment", "hardware")):
+                suggested_tools.append("get_employee_assigned_assets")
+            elif is_followup and "ticket" in last_topic.lower():
+                suggested_tools.append("get_employee_it_tickets")
+            else:
                 suggested_tools.append("get_employee_profile")
 
         is_hybrid = False
@@ -348,12 +513,13 @@ class LLMService:
         elif ("policy" in q or "entitlement" in q or "does the company provide" in q) and ("my" in q or "remaining" in q or "i have" in q):
             is_hybrid = True
 
-
         if is_hybrid:
             return RetrievalDecision(
+                interaction_type="hybrid_inquiry",
                 intent="hybrid_hr_query",
                 domains=policy_domains or ["hr_policy", "employee_records"],
                 sources=["policy_rag", "employee_mcp"],
+                requires_retrieval=True,
                 requires_policy_evidence=True,
                 requires_employee_context=True,
                 suggested_mcp_tools=suggested_tools,
@@ -364,9 +530,11 @@ class LLMService:
 
         if has_employee_query:
             return RetrievalDecision(
+                interaction_type="employee_inquiry",
                 intent="employee_record_query",
                 domains=["employee_records"] + policy_domains,
                 sources=["employee_mcp"],
+                requires_retrieval=True,
                 requires_policy_evidence=False,
                 requires_employee_context=True,
                 suggested_mcp_tools=suggested_tools,
@@ -377,9 +545,11 @@ class LLMService:
 
         if has_policy_query or any(w in q for w in ("leave", "laptop", "screen", "vpn", "work", "remote", "stipend", "equipment", "perk", "benefit")):
             return RetrievalDecision(
+                interaction_type="policy_inquiry",
                 intent="policy_query",
                 domains=policy_domains or ["company_policy"],
                 sources=["policy_rag"],
+                requires_retrieval=True,
                 requires_policy_evidence=True,
                 requires_employee_context=False,
                 suggested_mcp_tools=[],
@@ -389,14 +559,19 @@ class LLMService:
             )
 
         return RetrievalDecision(
+            interaction_type="out_of_scope",
             intent="out_of_scope",
             domains=["unrecognized"],
             sources=[],
+            requires_retrieval=False,
             requires_policy_evidence=False,
             requires_employee_context=False,
             is_out_of_scope=True,
             reasoning="Inquiry does not match known enterprise HR or IT topics.",
         )
+
+    # Legacy alias for backward compatibility
+    _understand_intent_local = _understand_intent_mock
 
     async def generate_response(
         self,

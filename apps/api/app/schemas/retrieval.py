@@ -4,8 +4,8 @@ Enables natural-language understanding and dynamic evidence routing
 across Policy RAG and Authenticated FastMCP employee records.
 """
 
-from typing import List, Literal, Optional
-from pydantic import BaseModel, Field
+from typing import Any, Dict, List, Literal, Optional
+from pydantic import BaseModel, ConfigDict, Field
 
 ApprovedSource = Literal["policy_rag", "employee_mcp"]
 ApprovedMCPTool = Literal[
@@ -29,15 +29,34 @@ ApprovedMCPTool = Literal[
     "get_all_requests_status",
 ]
 
+InteractionType = Literal[
+    "greeting",                 # "Hey Archie", "Good morning"
+    "acknowledgement",          # "Thanks", "Got it", "Understood"
+    "farewell",                 # "Goodbye", "Bye Archie"
+    "general_inquiry",          # "Who are you?", "What can you help me with?"
+    "policy_inquiry",           # "What is the remote work policy?"
+    "employee_inquiry",         # "What is my remaining annual leave balance?"
+    "hybrid_inquiry",           # "What are the leave rules and how many days do I have?"
+    "transaction_request",      # "I need off next Wednesday to Friday"
+    "clarification_response",   # "Yes, annual leave" (answers outstanding clarification)
+    "out_of_scope",             # Unrelated trivia, poetry, crypto
+]
+
 
 class RetrievalDecision(BaseModel):
     """
-    Structured retrieval decision produced by LLM intent understanding.
-    Constrained to explicitly approved evidence sources and read-only MCP tools.
+    Unified LLM structured decision governing conversation, retrieval,
+    tool selection, clarification, and transaction parameter extraction.
     """
+    model_config = ConfigDict(extra="ignore")
+
+    interaction_type: InteractionType = Field(
+        default="policy_inquiry",
+        description="Categorized interaction pattern: greeting, acknowledgement, farewell, general_inquiry, policy_inquiry, employee_inquiry, hybrid_inquiry, transaction_request, clarification_response, out_of_scope",
+    )
     intent: str = Field(
         ...,
-        description="High-level intent descriptor, e.g. 'policy_query', 'employee_record_query', 'hybrid_query', 'out_of_scope'",
+        description="High-level intent descriptor, e.g. 'policy_query', 'employee_record_query', 'hybrid_query', 'greeting', 'transaction_request', 'out_of_scope'",
     )
     domains: List[str] = Field(
         default_factory=list,
@@ -45,7 +64,11 @@ class RetrievalDecision(BaseModel):
     )
     sources: List[ApprovedSource] = Field(
         default_factory=list,
-        description="Explicitly approved retrieval sources: 'policy_rag', 'employee_mcp', or empty for out-of-scope",
+        description="Explicitly approved retrieval sources: 'policy_rag', 'employee_mcp', or empty for out-of-scope/conversational",
+    )
+    requires_retrieval: bool = Field(
+        default=False,
+        description="True if external evidence retrieval (ChromaDB or FastMCP) is needed",
     )
     requires_policy_evidence: bool = Field(
         default=False,
@@ -75,7 +98,27 @@ class RetrievalDecision(BaseModel):
         default=False,
         description="True if the inquiry is ambiguous and requires user clarification",
     )
+    clarification_question: Optional[str] = Field(
+        default=None,
+        description="Specific question to present to the user to resolve ambiguity",
+    )
+    transaction_type: Optional[str] = Field(
+        default=None,
+        description="Transactional workflow identifier if interaction_type is 'transaction_request'",
+    )
+    extracted_parameters: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Structured transaction parameters extracted from user utterance",
+    )
+    proposed_direct_response: Optional[str] = Field(
+        default=None,
+        description="Natural language response for greetings, pleasantries, or clarifications",
+    )
     reasoning: Optional[str] = Field(
         default=None,
         description="Brief justification for the retrieval decision",
     )
+
+
+# Alias for comprehensive conversational decision nomenclature
+ConversationalDecision = RetrievalDecision

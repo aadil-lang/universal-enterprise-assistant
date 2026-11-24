@@ -518,6 +518,12 @@ export const ChatInterface: React.FC = () => {
                           Company Policy
                         </span>
                       )}
+                      {msg.category === 'conversational' && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-teal-50 text-teal-700 border border-teal-200">
+                          <Sparkles className="w-3 h-3 mr-1" />
+                          Conversational
+                        </span>
+                      )}
                       {msg.category === 'employee' && (
                         <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-sky-50 text-sky-700 border border-sky-200">
                           <UserIcon className="w-3 h-3 mr-1" />

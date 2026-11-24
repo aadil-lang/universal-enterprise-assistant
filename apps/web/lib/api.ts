@@ -39,7 +39,7 @@ export interface ConfirmationPrompt {
 
 export interface ChatApiResponse {
   answer: string;
-  category: 'policy' | 'employee' | 'hybrid' | 'out_of_scope' | 'transactional';
+  category: 'policy' | 'employee' | 'hybrid' | 'out_of_scope' | 'transactional' | 'conversational';
   citations: ChatCitation[];
   mcp_tools_used: string[];
   execution_time_ms: number;

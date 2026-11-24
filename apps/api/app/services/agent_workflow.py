@@ -17,9 +17,9 @@ from typing import Any, Dict, List, Optional, TypedDict
 from langgraph.graph import END, START, StateGraph
 
 from app.core.auth import CallerIdentity, UserRole
-from app.schemas.retrieval import RetrievalDecision
+from app.schemas.retrieval import InteractionType, RetrievalDecision
 from app.services.guardrails import GuardrailService
-from app.services.llm_service import LLMService
+from app.services.llm_service import LLMProviderError, LLMService
 from app.services.mcp_client import AuthenticatedMCPClient, MCPAuthorizationError, get_mcp_client
 from app.services.policy_retriever import PolicyRetriever
 from app.services.transaction_intent_handler import TransactionIntentHandler
@@ -76,6 +76,7 @@ class AgentWorkflow:
         workflow.add_node("retrieve_policy", self.retrieve_policy_node)
         workflow.add_node("execute_mcp", self.execute_mcp_node)
         workflow.add_node("handle_out_of_scope", self.handle_out_of_scope_node)
+        workflow.add_node("handle_conversational", self.handle_conversational_node)
         workflow.add_node("synthesize_response", self.synthesize_response_node)
         workflow.add_node("post_flight_guardrail", self.post_flight_guardrail_node)
 
@@ -96,12 +97,14 @@ class AgentWorkflow:
             self._route_after_intent,
             {
                 "out_of_scope": "handle_out_of_scope",
+                "conversational": "handle_conversational",
                 "policy": "retrieve_policy",
                 "employee": "execute_mcp",
                 "hybrid": "retrieve_policy",
             },
         )
 
+        workflow.add_edge("handle_conversational", "post_flight_guardrail")
         workflow.add_edge("handle_out_of_scope", "post_flight_guardrail")
 
         workflow.add_conditional_edges(
@@ -175,23 +178,53 @@ class AgentWorkflow:
         """
         LLM-driven intent understanding and dynamic evidence routing.
         Uses structured Pydantic decision to select approved retrieval sources:
-        policy_rag (ChromaDB), employee_mcp (FastMCP), or both (hybrid).
+        policy_rag (ChromaDB), employee_mcp (FastMCP), or both (hybrid),
+        or route directly to conversational handling for pleasantries.
         """
-        decision: RetrievalDecision = await self.llm_service.understand_intent(
-            question=state["question"],
-            caller=state.get("caller"),
-            history=state.get("history"),
+        try:
+            decision: RetrievalDecision = await self.llm_service.understand_intent(
+                question=state["question"],
+                caller=state.get("caller"),
+                history=state.get("history"),
+            )
+        except LLMProviderError as pe:
+            logger.error("LLM understanding failed with provider error: %s", pe)
+            return {
+                "category": "conversational",
+                "final_answer": "Archie is temporarily unable to reach its language understanding service. Please try again in a moment.",
+                "refusal_reason": None,
+                "retrieval_decision": None,
+            }
+        except Exception as e:
+            logger.error("Unexpected error in intent understanding: %s", e)
+            return {
+                "category": "conversational",
+                "final_answer": "I am experiencing an unexpected issue understanding your request. Please try again shortly.",
+                "refusal_reason": None,
+                "retrieval_decision": None,
+            }
+
+        interaction_val = str(decision.interaction_type or "policy_inquiry").lower()
+
+        is_social = interaction_val in (
+            "greeting",
+            "acknowledgement",
+            "farewell",
+            "general_inquiry",
         )
 
-        # Dynamic category determination from approved retrieval sources
-        if decision.is_out_of_scope or (not decision.requires_policy_evidence and not decision.requires_employee_context):
+        if decision.is_out_of_scope or interaction_val == "out_of_scope":
             category = "out_of_scope"
+        elif is_social and not decision.requires_policy_evidence and not decision.requires_employee_context:
+            category = "conversational"
         elif decision.requires_policy_evidence and decision.requires_employee_context:
             category = "hybrid"
         elif decision.requires_policy_evidence:
             category = "policy"
         elif decision.requires_employee_context:
             category = "employee"
+        elif decision.proposed_direct_response and not decision.requires_retrieval:
+            category = "conversational"
         else:
             category = "out_of_scope"
 
@@ -317,9 +350,60 @@ class AgentWorkflow:
     # =========================================================================
     async def handle_out_of_scope_node(self, state: AgentState) -> Dict[str, Any]:
         """Provides polite standard refusal for requests outside enterprise HR and IT."""
+        decision_dict = state.get("retrieval_decision") or {}
+        proposed = decision_dict.get("proposed_direct_response")
+        if proposed and proposed.strip():
+            answer = proposed
+        else:
+            answer = "I am an enterprise HR & IT assistant for Acme Corporation. I can only assist with company policies, employee records, and HR/IT service requests."
         return {
-            "final_answer": "I am an enterprise HR & IT assistant. I can only assist with company policies and your employee records.",
+            "final_answer": answer,
             "refusal_reason": "Out of scope request.",
+        }
+
+    # =========================================================================
+    # Node 5b: Handle Conversational Node (Greetings, Thanks, Capabilities)
+    # =========================================================================
+    async def handle_conversational_node(self, state: AgentState) -> Dict[str, Any]:
+        """Handles conversational greetings, pleasantries, acknowledgments, and general assistant inquiries."""
+        if state.get("final_answer"):
+            return {
+                "final_answer": state["final_answer"],
+                "refusal_reason": None,
+            }
+
+        decision_dict = state.get("retrieval_decision") or {}
+        proposed = decision_dict.get("proposed_direct_response")
+        caller = state.get("caller")
+
+        name = "there"
+        if caller and getattr(caller, "employee_number", None):
+            name_map = {
+                "E101": "Alice",
+                "E102": "Bob",
+                "E103": "Carol",
+                "E104": "David",
+            }
+            name = name_map.get(caller.employee_number, "there")
+
+        if proposed and proposed.strip():
+            final_text = proposed
+        else:
+            interaction = decision_dict.get("interaction_type") or "greeting"
+            if interaction == "greeting":
+                final_text = f"Hello {name}! I am Archie, your enterprise HR & IT assistant. How can I help you today?"
+            elif interaction == "acknowledgement":
+                final_text = f"You're very welcome, {name}! Let me know if you need anything else."
+            elif interaction == "farewell":
+                final_text = f"Goodbye, {name}! Have a wonderful day ahead."
+            elif interaction == "general_inquiry":
+                final_text = f"I'm Archie, Acme Corporation's Universal Enterprise HR & IT Assistant. I can help you check leave balances, lookup IT hardware assets, submit requests, and answer questions about company policies. What would you like to know?"
+            else:
+                final_text = f"Hello {name}! How can I assist you with HR policies or IT services today?"
+
+        return {
+            "final_answer": final_text,
+            "refusal_reason": None,
         }
 
     # =========================================================================
