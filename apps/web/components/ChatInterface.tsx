@@ -10,19 +10,16 @@ import {
   Send,
   LogOut,
   RotateCcw,
-  BookOpen,
   User as UserIcon,
   Bot,
   FileText,
   Clock,
   Layers,
-  Sparkles,
   ShieldAlert,
   UploadCloud,
   ChevronRight,
   CheckCircle2,
   XCircle,
-  ClipboardList,
 } from 'lucide-react';
 
 interface ChatMessage {
@@ -510,46 +507,7 @@ export const ChatInterface: React.FC = () => {
               >
                 {/* Assistant Metadata Header */}
                 {msg.sender === 'assistant' && (
-                  <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100">
-                    <div className="flex items-center space-x-2">
-                      {msg.category === 'policy' && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                          <BookOpen className="w-3 h-3 mr-1" />
-                          Company Policy
-                        </span>
-                      )}
-                      {msg.category === 'conversational' && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-teal-50 text-teal-700 border border-teal-200">
-                          <Sparkles className="w-3 h-3 mr-1" />
-                          Conversational
-                        </span>
-                      )}
-                      {msg.category === 'employee' && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-sky-50 text-sky-700 border border-sky-200">
-                          <UserIcon className="w-3 h-3 mr-1" />
-                          Employee Record
-                        </span>
-                      )}
-                      {msg.category === 'hybrid' && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
-                          <Sparkles className="w-3 h-3 mr-1" />
-                          Hybrid Policy + Employee
-                        </span>
-                      )}
-                      {msg.category === 'transactional' && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-violet-50 text-violet-700 border border-violet-200">
-                          <ClipboardList className="w-3 h-3 mr-1" />
-                          Enterprise Transaction
-                        </span>
-                      )}
-                      {msg.category === 'out_of_scope' && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
-                          <ShieldAlert className="w-3 h-3 mr-1" />
-                          Out of Scope
-                        </span>
-                      )}
-                    </div>
-
+                  <div className="flex items-center justify-end pb-1.5 mb-2 border-b border-slate-100">
                     <div className="flex items-center space-x-2 text-[10px] text-slate-400">
                       {msg.executionTimeMs && (
                         <span className="flex items-center space-x-0.5">
