@@ -351,7 +351,15 @@ class LLMService:
                 requires_policy_evidence=False,
                 requires_employee_context=False,
                 is_out_of_scope=False,
-                proposed_direct_response=f"Hello, {caller_name}! I'm Archie, your Acme HR & IT Assistant. How can I help you today? You can ask me about company policies (leave, remote work, equipment), your remaining leave balance, assigned IT hardware, or submit workplace requests.",
+                proposed_direct_response=(
+                    f"Hello, {caller_name}! I am Archie, your universal Enterprise HR & IT Assistant for Acme Corporation. "
+                    "I am here to assist you with all company policies, your personal workplace records, and enterprise service requests. "
+                    "Specifically, you can consult with me regarding:\n\n"
+                    "• **Company Policies & Workplace Guidelines**: Detailed information on annual leave accrual, rollover caps, sick leave rules, remote work security and VPN guidelines, ergonomic home-office stipends, wellness allowances, and equipment refresh cycles.\n"
+                    "• **Personal Employee Records**: Real-time lookups of your remaining annual and sick leave balances, assigned laptop hardware specifications and asset tags, and open IT support tickets.\n"
+                    "• **Enterprise Service Workflows**: Guided preparation for taking time off, opening IT helpdesk tickets, submitting expense reimbursements, requesting hardware upgrades, or updating your emergency contact information.\n\n"
+                    "What can I help you with today?"
+                ),
                 reasoning="User offered a standard conversational greeting without an embedded enterprise query.",
             )
 

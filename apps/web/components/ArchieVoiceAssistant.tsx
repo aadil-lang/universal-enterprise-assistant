@@ -38,6 +38,7 @@ export const ArchieVoiceAssistant: React.FC<ArchieVoiceAssistantProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSupported, setIsSupported] = useState<boolean>(true);
   const [selectedVoiceName, setSelectedVoiceName] = useState<string>('Female (en-IN)');
+  const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [showPrivacyNotice, setShowPrivacyNotice] = useState<boolean>(false);
 
   const stateMachineRef = useRef<VoiceStateMachine | null>(null);
@@ -61,9 +62,13 @@ export const ArchieVoiceAssistant: React.FC<ArchieVoiceAssistantProps> = ({
     if (voice) {
       setSelectedVoiceName(voice.name);
     }
-    tts.onVoicesChanged = () => {
+    const initialVoices = tts.getAvailableVoices();
+    setAvailableVoices(initialVoices);
+
+    tts.onVoicesChanged = (voices) => {
       const v = tts.getSelectedVoice();
       if (v) setSelectedVoiceName(v.name);
+      setAvailableVoices(voices || tts.getAvailableVoices());
     };
 
     const sm = new VoiceStateMachine(
@@ -349,6 +354,28 @@ export const ArchieVoiceAssistant: React.FC<ArchieVoiceAssistantProps> = ({
               </>
             )}
           </button>
+
+          {/* Voice Selector Dropdown (When Voice Mode Enabled) */}
+          {isVoiceEnabled && availableVoices.length > 1 && (
+            <select
+              value={selectedVoiceName}
+              onChange={(e) => {
+                const name = e.target.value;
+                setSelectedVoiceName(name);
+                ttsProviderRef.current?.setVoiceByName?.(name);
+              }}
+              className="bg-slate-800/90 text-slate-200 border border-slate-700/80 rounded-xl px-2 py-1.5 text-[11px] focus:outline-none focus:ring-1 focus:ring-indigo-400 max-w-[140px] truncate cursor-pointer"
+              title="Select Assistant Voice"
+            >
+              {availableVoices
+                .filter((v) => (v.lang || '').toLowerCase().startsWith('en'))
+                .map((v) => (
+                  <option key={v.name} value={v.name} className="bg-slate-900 text-white">
+                    {v.name.replace(/Microsoft |Online \(Natural\) |Desktop |\(United States\)|\(India\)/gi, '').trim()} ({v.lang})
+                  </option>
+                ))}
+            </select>
+          )}
 
           {/* Privacy & Audio Security Disclosure Button */}
           <button

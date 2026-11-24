@@ -391,7 +391,15 @@ class AgentWorkflow:
         else:
             interaction = decision_dict.get("interaction_type") or "greeting"
             if interaction == "greeting":
-                final_text = f"Hello {name}! I am Archie, your enterprise HR & IT assistant. How can I help you today?"
+                final_text = (
+                    f"Hello, {name}! I am Archie, your universal Enterprise HR & IT Assistant for Acme Corporation. "
+                    "I am here to assist you with all company policies, your personal workplace records, and enterprise service requests. "
+                    "Specifically, you can consult with me regarding:\n\n"
+                    "• **Company Policies & Workplace Guidelines**: Detailed information on annual leave accrual, rollover caps, sick leave rules, remote work security and VPN guidelines, ergonomic home-office stipends, wellness allowances, and equipment refresh cycles.\n"
+                    "• **Personal Employee Records**: Real-time lookups of your remaining annual and sick leave balances, assigned laptop hardware specifications and asset tags, and open IT support tickets.\n"
+                    "• **Enterprise Service Workflows**: Guided preparation for taking time off, opening IT helpdesk tickets, submitting expense reimbursements, requesting hardware upgrades, or updating your emergency contact information.\n\n"
+                    "What can I help you with today?"
+                )
             elif interaction == "acknowledgement":
                 final_text = f"You're very welcome, {name}! Let me know if you need anything else."
             elif interaction == "farewell":

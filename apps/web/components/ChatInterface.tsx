@@ -41,6 +41,7 @@ export const ChatInterface: React.FC = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [pendingQuery, setPendingQuery] = useState('');
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
 
@@ -51,6 +52,49 @@ export const ChatInterface: React.FC = () => {
   // Auto-scroll to bottom of conversation
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const isPolicyConsultation = (query: string): boolean => {
+    if (!query) return false;
+    const q = query.toLowerCase().trim();
+
+    // Pure social pleasantries, greetings, farewells
+    const isSocial = /^(hey|hi|hello|good morning|good afternoon|good evening|thanks|thank you|thx|bye|goodbye)(\s+archie)?[\s!.]*$/i.test(q);
+    if (isSocial) return false;
+
+    // Pure personal balance / asset / ticket inquiries without policy rules
+    const hasPolicyWord = q.includes('policy') || q.includes('policies') || q.includes('rule') || q.includes('rollover') || q.includes('carry over') || q.includes('carryover') || q.includes('guideline') || q.includes('allowance') || q.includes('stipend');
+    const isPersonalRecordOnly = (
+      q.includes('my balance') ||
+      q.includes('leave balance') ||
+      q.includes('vacation balance') ||
+      q.includes('sick balance') ||
+      q.includes('my laptop') ||
+      q.includes('my hardware') ||
+      q.includes('my asset') ||
+      q.includes('my ticket') ||
+      q.includes('open tickets')
+    ) && !hasPolicyWord;
+
+    if (isPersonalRecordOnly) return false;
+
+    // Transactions (apply, submit, cancel, update)
+    const isTransaction = /^(apply|submit|request|book|cancel|update)\b/i.test(q);
+    if (isTransaction && !hasPolicyWord) return false;
+
+    // Policy triggers across company rules, guidelines, benefits, and entitlements
+    const policyIndicators = [
+      'policy', 'policies', 'rule', 'rules', 'guideline', 'guidelines',
+      'entitlement', 'benefit', 'benefits', 'rollover', 'carry over', 'carryover',
+      'accrual', 'accrue', 'remote work', 'wfh', 'work from home', 'stipend',
+      'allowance', 'ergonomic', 'pet insurance', 'parental', 'maternity',
+      'paternity', 'bereavement', 'health', 'wellness', 'gym', 'refresh',
+      'vpn', 'security', 'expense', 'travel', 'per diem', 'code of conduct',
+      'probation', 'notice period', 'overtime', 'holiday', 'holidays',
+      'what is', 'how does', 'can i', 'allowed', 'eligib'
+    ];
+
+    return policyIndicators.some((word) => q.includes(word));
   };
 
   useEffect(() => {
@@ -98,6 +142,7 @@ export const ChatInterface: React.FC = () => {
       return;
     }
 
+    setPendingQuery(query);
     setIsLoading(true);
 
     try {
@@ -184,6 +229,7 @@ export const ChatInterface: React.FC = () => {
     };
 
     setMessages((prev) => [...prev, userMsg]);
+    setPendingQuery(query);
     setIsLoading(true);
 
     try {
@@ -252,6 +298,7 @@ export const ChatInterface: React.FC = () => {
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
     setMessages((prev) => [...prev, userMsg]);
+    setPendingQuery('Yes, submit it.');
     setIsLoading(true);
 
     try {
@@ -297,6 +344,7 @@ export const ChatInterface: React.FC = () => {
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
     setMessages((prev) => [...prev, userMsg]);
+    setPendingQuery('Cancel this request.');
     setIsLoading(true);
 
     try {
@@ -662,9 +710,11 @@ export const ChatInterface: React.FC = () => {
               <div className="w-2 h-2 rounded-full bg-blue-600 animate-bounce [animation-delay:-0.3s]"></div>
               <div className="w-2 h-2 rounded-full bg-blue-600 animate-bounce [animation-delay:-0.15s]"></div>
               <div className="w-2 h-2 rounded-full bg-blue-600 animate-bounce"></div>
-              <span className="text-xs text-slate-500 font-medium ml-2">
-                Consulting policy documents &amp; employee records...
-              </span>
+              {isPolicyConsultation(pendingQuery) && (
+                <span className="text-xs text-slate-500 font-medium ml-2">
+                  Consulting the policy documents...
+                </span>
+              )}
             </div>
           </div>
         )}

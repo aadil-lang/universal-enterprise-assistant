@@ -103,20 +103,70 @@ export class WebSpeechTTSProvider implements TTSProvider {
 
     const targetLang = this.locale.toLowerCase().replace('_', '-');
 
-    // 1. Female Indian English
+    // Helper to identify modern Natural / Neural / Online realistic voices across Chrome, Edge, Safari & Windows
+    const isNatural = (v: SpeechSynthesisVoice) => {
+      const name = (v.name || '').toLowerCase();
+      return (
+        name.includes('natural') ||
+        name.includes('online') ||
+        name.includes('neural') ||
+        name.includes('google') ||
+        name.includes('siri') ||
+        name.includes('premium') ||
+        name.includes('enhanced')
+      );
+    };
+
+    const isFemale = (v: SpeechSynthesisVoice) => {
+      const name = (v.name || '').toLowerCase();
+      return FEMALE_VOICE_KEYWORDS.some((kw) => name.includes(kw));
+    };
+
+    // 1. Natural / Neural Indian English voice (e.g. Microsoft Neerja Online (Natural) - English (India))
+    const naturalIn = voices.find((v) => {
+      const vLang = (v.lang || '').toLowerCase().replace('_', '-');
+      const isTargetLang = vLang.startsWith(targetLang) || vLang.includes('en-in');
+      return isTargetLang && isNatural(v);
+    });
+    if (naturalIn) {
+      this.selectedVoice = naturalIn;
+      return naturalIn;
+    }
+
+    // 2. High-fidelity Natural / Neural Female English voice (e.g. Microsoft Jenny Online (Natural), Aria Online, Google UK English Female)
+    const naturalEnFemale = voices.find((v) => {
+      const vLang = (v.lang || '').toLowerCase();
+      return vLang.startsWith('en') && isNatural(v) && isFemale(v);
+    });
+    if (naturalEnFemale) {
+      this.selectedVoice = naturalEnFemale;
+      return naturalEnFemale;
+    }
+
+    // 3. Any Natural / Neural English voice (e.g. Google US English, Samantha Enhanced, Guy Online)
+    const anyNaturalEn = voices.find((v) => {
+      const vLang = (v.lang || '').toLowerCase();
+      return vLang.startsWith('en') && isNatural(v);
+    });
+    if (anyNaturalEn) {
+      this.selectedVoice = anyNaturalEn;
+      return anyNaturalEn;
+    }
+
+    // 4. Female Indian English standard voice
     const femaleIn = voices.find((v) => {
       const vLang = (v.lang || '').toLowerCase().replace('_', '-');
       const vName = (v.name || '').toLowerCase();
       const isTargetLang = vLang.startsWith(targetLang) || vLang.includes('en-in');
-      const isFemale = FEMALE_VOICE_KEYWORDS.some((kw) => vName.includes(kw));
-      return isTargetLang && isFemale;
+      const female = FEMALE_VOICE_KEYWORDS.some((kw) => vName.includes(kw));
+      return isTargetLang && female;
     });
     if (femaleIn) {
       this.selectedVoice = femaleIn;
       return femaleIn;
     }
 
-    // 2. Any Indian English
+    // 5. Any Indian English
     const anyIn = voices.find((v) => {
       const vLang = (v.lang || '').toLowerCase().replace('_', '-');
       return vLang.startsWith(targetLang) || vLang.includes('en-in');
@@ -126,7 +176,7 @@ export class WebSpeechTTSProvider implements TTSProvider {
       return anyIn;
     }
 
-    // 3. Female English (any region)
+    // 6. Female English (any region)
     const femaleEn = voices.find((v) => {
       const vLang = (v.lang || '').toLowerCase();
       const vName = (v.name || '').toLowerCase();
@@ -137,16 +187,26 @@ export class WebSpeechTTSProvider implements TTSProvider {
       return femaleEn;
     }
 
-    // 4. Any English voice
+    // 7. Any English voice
     const anyEn = voices.find((v) => (v.lang || '').toLowerCase().startsWith('en'));
     if (anyEn) {
       this.selectedVoice = anyEn;
       return anyEn;
     }
 
-    // 5. Default fallback
+    // 8. Default fallback
     this.selectedVoice = voices[0] || null;
     return this.selectedVoice;
+  }
+
+  public setVoiceByName(name: string): boolean {
+    const voices = this.getAvailableVoices();
+    const found = voices.find((v) => v.name === name);
+    if (found) {
+      this.selectedVoice = found;
+      return true;
+    }
+    return false;
   }
 
   public speak(text: string, callbacks?: TTSCallbacks): void {
@@ -174,7 +234,7 @@ export class WebSpeechTTSProvider implements TTSProvider {
       }
       utterance.lang = voice?.lang || this.locale;
       utterance.rate = 1.0;
-      utterance.pitch = 1.05; // Slightly elevated for natural warm conversational delivery
+      utterance.pitch = 1.0; // Natural, realistic human baseline
       utterance.volume = 1.0;
 
       utterance.onstart = () => {
