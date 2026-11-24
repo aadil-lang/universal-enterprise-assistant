@@ -60,9 +60,9 @@ CORE PRINCIPLE:
 
 INTERACTION TYPES:
 1. "greeting":
-   - Examples: "Hey Archie", "Hello", "Hi Archie", "Good morning", "Hey"
+   - Examples: "Hey Archie", "Hello", "Hi Archie", "Good morning", "Hey", "Howdy"
    - Requirements: requires_retrieval=false, sources=[], is_out_of_scope=false.
-   - Set "proposed_direct_response" to a short, warm greeting introducing Archie and asking how to help (e.g. "Hello! I'm Archie, your Acme HR & IT Assistant. How can I help you today?"). Do not list full capabilities unless specifically asked.
+   - Set "proposed_direct_response" to a short, warm greeting that dynamically matches the user's greeting style and tone (e.g. if the user says "Hi", greet with "Hi <Name>!"; if "Hello", greet with "Hello <Name>!"; if "Good morning", greet with "Good morning <Name>!"; if "Hey", greet with "Hey <Name>!"). Keep it short, warm, and natural. Do not list full capabilities unless specifically asked.
 
 2. "acknowledgement":
    - Examples: "Thanks Archie", "Thank you", "Got it", "Understood", "Awesome"
@@ -342,6 +342,20 @@ class LLMService:
         pure_greetings = {"hey", "hi", "hello", "hey archie", "hi archie", "hello archie", "hey there", "hello there", "good morning", "good afternoon", "good evening", "howdy"}
         is_greeting = (clean_q in pure_greetings or any(clean_q.startswith(g) for g in ("hey archie", "hi archie", "hello archie", "good morning archie")))
         if is_greeting and not has_enterprise_keywords:
+            salutation = "Hello"
+            if clean_q.startswith("hi"):
+                salutation = "Hi"
+            elif clean_q.startswith("hey"):
+                salutation = "Hey"
+            elif clean_q.startswith("good morning"):
+                salutation = "Good morning"
+            elif clean_q.startswith("good afternoon"):
+                salutation = "Good afternoon"
+            elif clean_q.startswith("good evening"):
+                salutation = "Good evening"
+            elif clean_q.startswith("howdy"):
+                salutation = "Howdy"
+
             return RetrievalDecision(
                 interaction_type="greeting",
                 intent="greeting",
@@ -351,8 +365,8 @@ class LLMService:
                 requires_policy_evidence=False,
                 requires_employee_context=False,
                 is_out_of_scope=False,
-                proposed_direct_response=f"Hello, {caller_name}! I'm Archie, your Acme HR & IT Assistant. How can I help you today?",
-                reasoning="User offered a standard conversational greeting.",
+                proposed_direct_response=f"{salutation}, {caller_name}! I'm Archie, your Acme HR & IT Assistant. How can I help you today?",
+                reasoning="User offered a standard conversational greeting, mirrored to match user's salutation style.",
             )
 
         pure_thanks = {"thanks", "thank you", "thanks archie", "thank you archie", "thx", "got it", "understood", "awesome", "perfect"}

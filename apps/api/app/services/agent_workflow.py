@@ -391,7 +391,21 @@ class AgentWorkflow:
         else:
             interaction = decision_dict.get("interaction_type") or "greeting"
             if interaction == "greeting":
-                final_text = f"Hello, {name}! I'm Archie, your Acme HR & IT Assistant. How can I help you today?"
+                q_clean = re.sub(r"[^\w\s]", "", state.get("question", "").lower()).strip()
+                salutation = "Hello"
+                if q_clean.startswith("hi"):
+                    salutation = "Hi"
+                elif q_clean.startswith("hey"):
+                    salutation = "Hey"
+                elif "good morning" in q_clean:
+                    salutation = "Good morning"
+                elif "good afternoon" in q_clean:
+                    salutation = "Good afternoon"
+                elif "good evening" in q_clean:
+                    salutation = "Good evening"
+                elif q_clean.startswith("howdy"):
+                    salutation = "Howdy"
+                final_text = f"{salutation}, {name}! I'm Archie, your Acme HR & IT Assistant. How can I help you today?"
             elif interaction == "acknowledgement":
                 final_text = f"You're very welcome, {name}! Let me know if you need anything else."
             elif interaction == "farewell":

@@ -17,7 +17,7 @@ export class GreetingService {
   /**
    * Generates time-of-day appropriate greeting for the authenticated employee.
    */
-  public generateGreeting(user?: ArchieUserProfile | null, now: Date = new Date()): string {
+  public generateGreeting(user?: ArchieUserProfile | null, now: Date = new Date(), userSpokenUtterance?: string): string {
     const hours = now.getHours();
     let timeGreeting = 'Good afternoon';
     if (hours < 12) {
@@ -28,8 +28,23 @@ export class GreetingService {
 
     const name = this.resolveEmployeeName(user);
 
+    let salutation = 'Hey';
+    if (userSpokenUtterance) {
+      const q = userSpokenUtterance.toLowerCase().trim();
+      if (q.startsWith('hi')) salutation = 'Hi';
+      else if (q.startsWith('hey')) salutation = 'Hey';
+      else if (q.startsWith('hello')) salutation = 'Hello';
+      else if (q.includes('good morning')) salutation = 'Good morning';
+      else if (q.includes('good afternoon')) salutation = 'Good afternoon';
+      else if (q.includes('good evening')) salutation = 'Good evening';
+      else if (q.startsWith('howdy')) salutation = 'Howdy';
+    }
+
     if (name) {
-      return `Hey ${name}! ${timeGreeting}. I'm Archie, your HR and IT assistant. How can I help you today?`;
+      if (salutation === 'Hey') {
+        return `Hey ${name}! ${timeGreeting}. I'm Archie, your HR and IT assistant. How can I help you today?`;
+      }
+      return `${salutation}, ${name}! I'm Archie, your HR and IT assistant. How can I help you today?`;
     }
 
     // Neutral fallback
