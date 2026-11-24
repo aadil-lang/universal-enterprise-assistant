@@ -29,22 +29,11 @@ export class GreetingService {
     const name = this.resolveEmployeeName(user);
 
     if (name) {
-      return (
-        `Hey ${name}! ${timeGreeting}. I am Archie, your universal Enterprise HR and IT Assistant here at Acme Corporation. ` +
-        `I am fully equipped to assist you with everything related to our workplace policies, your personal employment records, and IT support services. ` +
-        `You can ask me about company guidelines including annual leave accruals, sick leave rollover caps, remote work and VPN policies, ergonomic home-office allowances, wellness benefits, and hardware refresh cycles. ` +
-        `I can also look up your live verified leave balances, inspect your assigned laptop and hardware assets, check the status of your open support tickets, or help draft requests for time off, expense reimbursements, and equipment support. ` +
-        `How can I assist you today?`
-      );
+      return `Hey ${name}! ${timeGreeting}. I'm Archie, your HR and IT assistant. How can I help you today?`;
     }
 
     // Neutral fallback
-    return (
-      `Hello! ${timeGreeting}. I am Archie, your universal Enterprise HR and IT Assistant here at Acme Corporation. ` +
-      `I am here to help you navigate all company policies, access your personal employment records, and assist with workplace requests. ` +
-      `You can ask me about company guidelines including leave rules, remote work security, and equipment stipends, check your personal leave balances and assigned hardware, or submit service requests. ` +
-      `How can I help you today?`
-    );
+    return `Hello! ${timeGreeting}. I'm Archie, your Acme HR and IT assistant. How can I help you today?`;
   }
 
   public shouldGreet(): boolean {

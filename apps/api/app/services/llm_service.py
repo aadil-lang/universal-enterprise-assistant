@@ -62,7 +62,7 @@ INTERACTION TYPES:
 1. "greeting":
    - Examples: "Hey Archie", "Hello", "Hi Archie", "Good morning", "Hey"
    - Requirements: requires_retrieval=false, sources=[], is_out_of_scope=false.
-   - Set "proposed_direct_response" to a warm, professional greeting introducing Archie and inviting questions about company policies or employee records.
+   - Set "proposed_direct_response" to a short, warm greeting introducing Archie and asking how to help (e.g. "Hello! I'm Archie, your Acme HR & IT Assistant. How can I help you today?"). Do not list full capabilities unless specifically asked.
 
 2. "acknowledgement":
    - Examples: "Thanks Archie", "Thank you", "Got it", "Understood", "Awesome"
@@ -75,9 +75,9 @@ INTERACTION TYPES:
    - Set "proposed_direct_response" to a friendly farewell.
 
 4. "general_inquiry":
-   - Examples: "Who are you?", "What can you do?", "How do you work?", "Help"
+   - Examples: "Who are you?", "What can you do?", "What are your capabilities?", "Help"
    - Requirements: requires_retrieval=false, sources=[], is_out_of_scope=false.
-   - Set "proposed_direct_response" explaining your capabilities across Acme HR policies, leave balances, IT equipment, tickets, and workplace workflows.
+   - Set "proposed_direct_response" stating your full capabilities across Acme HR policies, leave balances, IT equipment, tickets, and workplace workflows.
 
 5. "policy_inquiry":
    - Scope: Company-wide policies, guidelines, and benefits (e.g. employee perks, wellness allowances, ergonomic home office stipend, leave rules/caps/rollover/accrual, remote work policy, equipment refresh guidelines, VPN rules, pet insurance).
@@ -351,16 +351,8 @@ class LLMService:
                 requires_policy_evidence=False,
                 requires_employee_context=False,
                 is_out_of_scope=False,
-                proposed_direct_response=(
-                    f"Hello, {caller_name}! I am Archie, your universal Enterprise HR & IT Assistant for Acme Corporation. "
-                    "I am here to assist you with all company policies, your personal workplace records, and enterprise service requests. "
-                    "Specifically, you can consult with me regarding:\n\n"
-                    "• **Company Policies & Workplace Guidelines**: Detailed information on annual leave accrual, rollover caps, sick leave rules, remote work security and VPN guidelines, ergonomic home-office stipends, wellness allowances, and equipment refresh cycles.\n"
-                    "• **Personal Employee Records**: Real-time lookups of your remaining annual and sick leave balances, assigned laptop hardware specifications and asset tags, and open IT support tickets.\n"
-                    "• **Enterprise Service Workflows**: Guided preparation for taking time off, opening IT helpdesk tickets, submitting expense reimbursements, requesting hardware upgrades, or updating your emergency contact information.\n\n"
-                    "What can I help you with today?"
-                ),
-                reasoning="User offered a standard conversational greeting without an embedded enterprise query.",
+                proposed_direct_response=f"Hello, {caller_name}! I'm Archie, your Acme HR & IT Assistant. How can I help you today?",
+                reasoning="User offered a standard conversational greeting.",
             )
 
         pure_thanks = {"thanks", "thank you", "thanks archie", "thank you archie", "thx", "got it", "understood", "awesome", "perfect"}
@@ -395,8 +387,8 @@ class LLMService:
                 reasoning="User offered a farewell.",
             )
 
-        pure_general = {"who are you", "what can you do", "what are your capabilities", "how can you help", "help", "who is archie"}
-        if clean_q in pure_general:
+        pure_general = {"who are you", "what can you do", "what are your capabilities", "capabilities", "how can you help", "help", "who is archie"}
+        if clean_q in pure_general or any(clean_q.startswith(g) for g in ("what can you do", "what are your capabilities", "who are you")):
             return RetrievalDecision(
                 interaction_type="general_inquiry",
                 intent="general_inquiry",
@@ -406,7 +398,13 @@ class LLMService:
                 requires_policy_evidence=False,
                 requires_employee_context=False,
                 is_out_of_scope=False,
-                proposed_direct_response="I'm Archie, Acme Corporation's Universal Enterprise HR & IT Assistant. I can help you look up official corporate policies (leave, remote work, equipment replacement, benefits), check your personal leave balances, view your assigned IT hardware and tickets, or draft workplace transactions like leave applications.",
+                proposed_direct_response=(
+                    f"I'm Archie, Acme Corporation's Universal Enterprise HR & IT Assistant! Here is what I can help you with:\n\n"
+                    "• **Company Policies & Workplace Guidelines**: Detailed information on annual leave accrual, rollover caps, sick leave rules, remote work security and VPN guidelines, ergonomic home-office stipends, wellness allowances, and equipment refresh cycles.\n"
+                    "• **Personal Employee Records**: Real-time lookups of your remaining annual and sick leave balances, assigned laptop hardware specifications and asset tags, and open IT support tickets.\n"
+                    "• **Enterprise Service Workflows**: Guided preparation for taking time off, opening IT helpdesk tickets, submitting expense reimbursements, requesting hardware upgrades, or updating emergency contacts.\n\n"
+                    "What would you like to know?"
+                ),
                 reasoning="User inquired about Archie's capabilities.",
             )
 

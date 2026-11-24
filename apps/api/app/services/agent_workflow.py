@@ -391,21 +391,19 @@ class AgentWorkflow:
         else:
             interaction = decision_dict.get("interaction_type") or "greeting"
             if interaction == "greeting":
-                final_text = (
-                    f"Hello, {name}! I am Archie, your universal Enterprise HR & IT Assistant for Acme Corporation. "
-                    "I am here to assist you with all company policies, your personal workplace records, and enterprise service requests. "
-                    "Specifically, you can consult with me regarding:\n\n"
-                    "• **Company Policies & Workplace Guidelines**: Detailed information on annual leave accrual, rollover caps, sick leave rules, remote work security and VPN guidelines, ergonomic home-office stipends, wellness allowances, and equipment refresh cycles.\n"
-                    "• **Personal Employee Records**: Real-time lookups of your remaining annual and sick leave balances, assigned laptop hardware specifications and asset tags, and open IT support tickets.\n"
-                    "• **Enterprise Service Workflows**: Guided preparation for taking time off, opening IT helpdesk tickets, submitting expense reimbursements, requesting hardware upgrades, or updating your emergency contact information.\n\n"
-                    "What can I help you with today?"
-                )
+                final_text = f"Hello, {name}! I'm Archie, your Acme HR & IT Assistant. How can I help you today?"
             elif interaction == "acknowledgement":
                 final_text = f"You're very welcome, {name}! Let me know if you need anything else."
             elif interaction == "farewell":
                 final_text = f"Goodbye, {name}! Have a wonderful day ahead."
             elif interaction == "general_inquiry":
-                final_text = f"I'm Archie, Acme Corporation's Universal Enterprise HR & IT Assistant. I can help you check leave balances, lookup IT hardware assets, submit requests, and answer questions about company policies. What would you like to know?"
+                final_text = (
+                    f"I'm Archie, Acme Corporation's Universal Enterprise HR & IT Assistant! Here is what I can help you with:\n\n"
+                    "• **Company Policies & Workplace Guidelines**: Detailed information on annual leave accrual, rollover caps, sick leave rules, remote work security and VPN guidelines, ergonomic home-office stipends, wellness allowances, and equipment refresh cycles.\n"
+                    "• **Personal Employee Records**: Real-time lookups of your remaining annual and sick leave balances, assigned laptop hardware specifications and asset tags, and open IT support tickets.\n"
+                    "• **Enterprise Service Workflows**: Guided preparation for taking time off, opening IT helpdesk tickets, submitting expense reimbursements, requesting hardware upgrades, or updating emergency contacts.\n\n"
+                    "What would you like to know?"
+                )
             else:
                 final_text = f"Hello {name}! How can I assist you with HR policies or IT services today?"
 
