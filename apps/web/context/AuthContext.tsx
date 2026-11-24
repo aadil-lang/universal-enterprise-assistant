@@ -21,46 +21,17 @@ const USER_KEY = 'acme_auth_user';
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Restore session from localStorage on initial client mount
+  // Clear any persistent tokens on mount so page refreshes always present the login screen immediately
   useEffect(() => {
-    const initializeAuth = async () => {
-      try {
-        const storedToken = localStorage.getItem(TOKEN_KEY);
-        const storedUser = localStorage.getItem(USER_KEY);
-
-        if (storedToken && storedUser) {
-          const parsedUser = JSON.parse(storedUser);
-          setToken(storedToken);
-          setUser(parsedUser);
-
-          // Verify token validity with backend in background
-          try {
-            const freshUser = await api.getMe(storedToken);
-            setUser(freshUser);
-            localStorage.setItem(USER_KEY, JSON.stringify(freshUser));
-          } catch (err: any) {
-            if (err instanceof ApiError && err.status === 401) {
-              // Session expired
-              localStorage.removeItem(TOKEN_KEY);
-              localStorage.removeItem(USER_KEY);
-              setToken(null);
-              setUser(null);
-            }
-          }
-        }
-      } catch (e) {
-        console.error('Failed to restore auth session:', e);
-        localStorage.removeItem(TOKEN_KEY);
-        localStorage.removeItem(USER_KEY);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    initializeAuth();
+    try {
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(USER_KEY);
+      sessionStorage.removeItem(TOKEN_KEY);
+      sessionStorage.removeItem(USER_KEY);
+    } catch {}
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
@@ -70,8 +41,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const response = await api.login(email, password);
       setToken(response.access_token);
       setUser(response.user);
-      localStorage.setItem(TOKEN_KEY, response.access_token);
-      localStorage.setItem(USER_KEY, JSON.stringify(response.user));
     } catch (err: any) {
       const msg = err?.message || 'Authentication failed. Please verify credentials.';
       setError(msg);
@@ -83,13 +52,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = useCallback(async () => {
     try {
-      await api.logout(token);
+      if (token) {
+        await api.logout(token);
+      }
     } catch {}
     setToken(null);
     setUser(null);
     setError(null);
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(USER_KEY);
+    try {
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(USER_KEY);
+    } catch {}
   }, [token]);
 
   const clearError = useCallback(() => {
