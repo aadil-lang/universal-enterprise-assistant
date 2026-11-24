@@ -70,33 +70,19 @@ Thumbs.db
 *.tsbuildinfo
 artifacts/*.log
 
-# Intermediate raw recording captures and uncompressed WAV chunks
-artifacts/demo/raw_video*/
-artifacts/demo/audio_*/
-artifacts/loom_walkthrough/raw_recordings*/
-artifacts/demo/test_*.mp3
-artifacts/demo/narration_*.mp3
-artifacts/demo/snapshots/
-artifacts/demo/test_pronunciation/
-artifacts/demo/audio/
-artifacts/demo/audio_v2/
-artifacts/demo/raw_video_v2/
-artifacts/test_voice_sample.mp3
-.neon
+# Artifacts and Local Uploads
+artifacts/
+data/uploads/*
+!data/uploads/.gitkeep
 
-# Media & Local Recording Artifacts
-videos/
-artifacts/demo/
-artifacts/audit_evidence/
-artifacts/loom_walkthrough/
-artifacts/*.png
-
-# Audit & Phase Execution Reports
-audit/
-PHASE_*.md
-AI_SECURITY_EVALUATION.md
-LOOM_VIDEO_WALKTHROUGH.md
-SECURITY_AUDIT.md
-SOFTWARE_ENGINEERING_AUDIT.md
-TECHNICAL_DEBT_REGISTER.md
-dogfooding_empirical_results.json
+# Local Automation & Verification Scripts
+scripts/record_*.py
+scripts/finalize_*.py
+scripts/generate_*_audio*.py
+scripts/generate_*_narration.py
+scripts/verify_*.py
+scripts/test_*.py
+scripts/concat_audio.py
+scripts/audit_browser_*.py
+scripts/execute_phase_6_dogfooding.py
+scripts/run_archie_full_verification.py
