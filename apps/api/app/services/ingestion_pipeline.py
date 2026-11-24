@@ -62,10 +62,19 @@ class IngestionPipeline:
 
         # Stage 2: Deduplication Check
         existing_doc = self.registry.get_document_by_filename(filename)
+        doc_in_vector_store = False
+        if existing_doc is not None:
+            try:
+                matches = self.vector_store.collection.get(where={"document_id": str(existing_doc.id)})
+                doc_in_vector_store = bool(matches and matches.get("ids"))
+            except Exception:
+                doc_in_vector_store = False
+
         if (
             existing_doc is not None
             and existing_doc.checksum_sha256 == checksum
             and existing_doc.status == DocumentStatus.INDEXED.value
+            and doc_in_vector_store
         ):
             logger.info("Document '%s' already indexed with identical checksum. Skipping reprocessing.", filename)
             return DocumentUploadResponse(

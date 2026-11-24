@@ -266,8 +266,10 @@ class VectorStoreService:
                 settings=ChromaSettings(anonymized_telemetry=False),
             )
         except Exception as e:
-            logger.warning("Could not connect to ChromaDB HttpClient (%s). Using EphemeralClient fallback.", e)
-            return chromadb.EphemeralClient()
+            persist_dir = os.path.join(os.getcwd(), "data", "chromadb")
+            os.makedirs(persist_dir, exist_ok=True)
+            logger.warning("Could not connect to ChromaDB HttpClient (%s). Using PersistentClient fallback at '%s'.", e, persist_dir)
+            return chromadb.PersistentClient(path=persist_dir)
 
     @property
     def collection(self):
