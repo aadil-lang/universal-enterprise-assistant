@@ -241,11 +241,17 @@ class TransactionIntentHandler:
         # ---------------------------------------------------------------------
         # 6. Capability 3 — Submit Reimbursement Request
         # ---------------------------------------------------------------------
+        is_policy_or_info = any(w in q_lower for w in ("policy", "policies", "how many", "how much", "what is", "when can", "rules", "guidelines", "status"))
         is_reimburse_intent = (
-            any(w in q_lower for w in ("reimbursement", "reimburse", "expense", "stipend", "claim"))
-            and any(w in q_lower for w in ("submit", "file", "claim", "request", "purchased", "bought", "receipt"))
-            and not any(w in q_lower for w in ("policy", "how much", "what is", "status"))
-        ) or any(w in q_lower for w in ("reimbursement", "claim reimbursement", "expense claim", "submit expense", "claim stipend", "ergonomic chair", "purchased an ergonomic"))
+            not is_policy_or_info
+            and (
+                (
+                    any(w in q_lower for w in ("reimbursement", "reimburse", "expense", "stipend", "claim"))
+                    and any(w in q_lower for w in ("submit", "file", "claim", "request", "purchased", "bought", "receipt"))
+                )
+                or any(w in q_lower for w in ("claim reimbursement", "expense claim", "submit expense", "claim stipend", "ergonomic chair", "purchased an ergonomic"))
+            )
+        )
 
         # ---------------------------------------------------------------------
         # 7. Capability 4 — Create HR Service Request
