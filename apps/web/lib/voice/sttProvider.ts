@@ -25,12 +25,12 @@ export class WebSpeechSTTProvider implements STTProvider {
   private assembler: TranscriptAssembler;
   private silenceTimer: any = null;
   private maxDurationTimer: any = null;
-  private silenceThresholdMs: number = 1200;
+  private silenceThresholdMs: number = 650;
   private maxDurationMs: number = 60000;
   private sessionId: string = '';
   private isExplicitlyStopping: boolean = false;
 
-  constructor(locale: string = 'en-IN', silenceThresholdMs: number = 1200, maxDurationMs: number = 60000) {
+  constructor(locale: string = 'en-IN', silenceThresholdMs: number = 650, maxDurationMs: number = 60000) {
     this.locale = locale;
     this.silenceThresholdMs = silenceThresholdMs;
     this.maxDurationMs = maxDurationMs;

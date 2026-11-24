@@ -193,6 +193,38 @@ class LLMService:
         Enforces: LLM-first language understanding. Never falls back to regex
         keyword guessing for remote frontier models.
         """
+        # Ultra-low latency path for unambiguous conversational pleasantries
+        # (Greetings, thanks, farewells) to make Voice Mode and Chat instantaneous:
+        clean_q = re.sub(r"[^\w\s]", "", question.lower()).strip()
+        pure_greetings = {
+            "hey", "hi", "hello", "hey archie", "hi archie", "hello archie",
+            "hey there", "hello there", "good morning", "good afternoon", "good evening", "howdy"
+        }
+        pure_social = {
+            "thanks", "thank you", "thanks archie", "thank you archie", "thx",
+            "got it", "understood", "awesome", "perfect", "bye", "goodbye", "bye archie"
+        }
+        has_enterprise_keywords = any(
+            w in question.lower()
+            for w in (
+                "leave", "balance", "policy", "policies", "laptop", "ticket", "asset",
+                "vacation", "sick", "pto", "holiday", "benefit", "benefits", "stipend",
+                "equipment", "expense", "reimbursement", "rules", "carry", "rollover"
+            )
+        )
+
+        is_pure_conversational = (
+            (clean_q in pure_greetings or any(clean_q.startswith(g) for g in ("hey archie", "hi archie", "hello archie", "good morning archie")))
+            or (clean_q in pure_social or any(clean_q.startswith(t) for t in ("thanks", "thank you", "bye", "goodbye")))
+        ) and not has_enterprise_keywords
+
+        if is_pure_conversational:
+            return self._understand_intent_mock(
+                question=question,
+                caller=caller,
+                history=history,
+            )
+
         if self.provider in ("gemini", "openai", "custom"):
             return await self._call_remote_intent_understanding(
                 question=question,
@@ -243,6 +275,7 @@ class LLMService:
                 {"role": "user", "content": user_prompt},
             ],
             "temperature": 0.0,
+            "max_tokens": 400,
             "response_format": {"type": "json_object"},
         }
 
@@ -640,6 +673,7 @@ class LLMService:
                 {"role": "user", "content": user_content},
             ],
             "temperature": 0.0,
+            "max_tokens": 500,
         }
 
         max_retries = 2

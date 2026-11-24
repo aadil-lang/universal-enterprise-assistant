@@ -48,7 +48,7 @@ export const ArchieVoiceAssistant: React.FC<ArchieVoiceAssistantProps> = ({
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    const stt = new WebSpeechSTTProvider('en-IN', 1200, 60000);
+    const stt = new WebSpeechSTTProvider('en-IN', 650, 60000);
     const tts = new WebSpeechTTSProvider('en-IN');
 
     sttProviderRef.current = stt;
