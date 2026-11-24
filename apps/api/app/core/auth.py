@@ -55,9 +55,17 @@ def get_auth_session_factory():
     if _AUTH_SESSION_FACTORY is None:
         settings = get_settings()
         connect_args = {}
+        pool_kwargs = {"pool_pre_ping": True}
         if "postgresql" in settings.DATABASE_URL:
-            connect_args["connect_timeout"] = 2
-        engine = create_engine(settings.DATABASE_URL, pool_pre_ping=True, connect_args=connect_args)
+            connect_args["connect_timeout"] = 10
+            pool_kwargs["pool_size"] = 5
+            pool_kwargs["max_overflow"] = 10
+            pool_kwargs["pool_recycle"] = 300
+        engine = create_engine(
+            settings.DATABASE_URL,
+            connect_args=connect_args,
+            **pool_kwargs,
+        )
         _AUTH_SESSION_FACTORY = sessionmaker(bind=engine, expire_on_commit=False)
     return _AUTH_SESSION_FACTORY
 
