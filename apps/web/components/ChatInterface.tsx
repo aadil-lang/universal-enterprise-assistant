@@ -29,7 +29,7 @@ interface ChatMessage {
   id: string;
   sender: 'user' | 'assistant';
   text: string;
-  category?: 'policy' | 'employee' | 'hybrid' | 'out_of_scope' | 'transactional';
+  category?: 'policy' | 'employee' | 'hybrid' | 'out_of_scope' | 'transactional' | 'conversational';
   citations?: ChatCitation[];
   mcpToolsUsed?: string[];
   executionTimeMs?: number;
