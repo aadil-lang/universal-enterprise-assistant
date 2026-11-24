@@ -21,7 +21,8 @@ PROMPT_INJECTION_PATTERNS = [
     re.compile(r"(reveal|print|display|show|output)\s+(the\s+)?(system\s+prompt|developer\s+instructions|secret\s+key)", re.IGNORECASE),
     re.compile(r"you\s+are\s+now\s+(in\s+)?(developer\s+mode|dan\s+mode|unrestricted|god\s+mode)", re.IGNORECASE),
     re.compile(r"bypass\s+(all\s+)?(security|guardrails|filters|restrictions)", re.IGNORECASE),
-    re.compile(r"system\s*:\s*(override|reset|award|grant|delete)", re.IGNORECASE),
+    re.compile(r"system\s*[:\s]\s*(override|reset|award|grant|delete)", re.IGNORECASE),
+    re.compile(r"\b(drop\s+table|delete\s+from|grant\s+admin|insert\s+into|update\s+\w+\s+set)\b", re.IGNORECASE),
     re.compile(r"<\|im_start\|>|<\|im_end\|>|\[INST\]|\[/INST\]", re.IGNORECASE),
 ]
 

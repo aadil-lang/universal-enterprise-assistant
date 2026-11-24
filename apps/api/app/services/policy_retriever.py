@@ -133,7 +133,8 @@ class PolicyRetriever:
         stopwords = {
             "what", "when", "where", "which", "does", "have", "policy",
             "company", "employee", "employees", "their", "about", "with",
-            "rules", "guidelines", "please", "tell",
+            "rules", "guidelines", "please", "tell", "acme", "corporation",
+            "offer", "provide", "covers", "coverage",
         }
         key_terms = query_words - stopwords
         if key_terms:
